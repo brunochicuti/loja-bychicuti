@@ -25,7 +25,7 @@ export default function Header() {
         </nav>
 
         
-          <a href="https://wa.me/5567900000000"
+          <a href="https://wa.me/message/GSDJGPZA2QRKA1"
           target="_blank"
           className="hidden md:inline-block bg-[#863D3D] text-[#FBF6F3] px-5 py-2.5 text-sm font-medium hover:bg-[#5C2A2A] transition-colors"
         >
