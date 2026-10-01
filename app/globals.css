@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: var(--font-work-sans);
+  --font-serif: var(--font-fraunces);
+}
+
+.font-serif {
+  font-family: var(--font-serif), serif;
+}
