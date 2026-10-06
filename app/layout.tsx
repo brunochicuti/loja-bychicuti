@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Work_Sans } from "next/font/google";
 import "./globals.css";
+import Script from "next/script";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -27,6 +28,19 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="scroll-smooth">
       <body className={`${fraunces.variable} ${workSans.variable} font-sans bg-[#FBF6F3] text-[#2A2420]`}>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-JC37V8ZTQH"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-JC37V8ZTQH');
+          `}
+        </Script>
         {children}
       </body>
     </html>
