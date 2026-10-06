@@ -1,4 +1,5 @@
 import Carousel from "./Carousel";
+import WhatsAppLink from "./WhatsAppLink";
 export default function Hero() {
   return (
     <section className="pt-40 pb-20 px-6 max-w-6xl mx-auto grid md:grid-cols-[1.2fr_0.8fr] gap-12 items-end">
@@ -14,12 +15,9 @@ export default function Hero() {
           seu dia a dia.
         </p>
         
-          <a href="https://wa.me/message/GSDJGPZA2QRKA1"
-          target="_blank"
-          className="inline-block bg-[#863D3D] text-[#FBF6F3] px-8 py-4 font-medium hover:bg-[#5C2A2A] transition-colors"
-        >
-          Falar pelo WhatsApp
-        </a>
+          <WhatsAppLink className="inline-block bg-[#863D3D] text-[#FBF6F3] px-8 py-4 font-medium hover:bg-[#5C2A2A] transition-colors">
+            Falar pelo WhatsApp
+          </WhatsAppLink>
       </div>
 
       <Carousel />

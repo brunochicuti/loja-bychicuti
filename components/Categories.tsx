@@ -1,3 +1,4 @@
+import WhatsAppLink from "./WhatsAppLink";
 export default function Categories() {
   return (
     <section className="px-6 max-w-6xl mx-auto py-20 grid md:grid-cols-2 gap-6">
@@ -9,11 +10,10 @@ export default function Categories() {
           Sutiãs, calcinhas e pijamas para o dia a dia e ocasiões especiais.
         </p>
         
-          <a href="https://wa.me/message/GSDJGPZA2QRKA1"
-          target="_blank"
-          className="text-sm font-medium underline w-fit">
+        <WhatsAppLink className="text-sm font-medium underline w-fit">
           Ver opções
-        </a>
+        </WhatsAppLink>  
+        
       </div>
 
       <div
@@ -25,11 +25,9 @@ export default function Categories() {
           Cuecas e roupas de baixo em algodão e tecidos técnicos.
         </p>
         
-          <a href="https://wa.me/message/GSDJGPZA2QRKA1"
-          target="_blank"
-          className="text-sm font-medium underline w-fit">
+        <WhatsAppLink className="text-sm font-medium underline w-fit">
           Ver opções
-        </a>
+        </WhatsAppLink>  
       </div>
     </section>
   );

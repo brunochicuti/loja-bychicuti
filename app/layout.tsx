@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces, Work_Sans } from "next/font/google";
+import { Work_Sans } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  weight: ["400", "500", "600"],
-});
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -27,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="scroll-smooth">
-      <body className={`${fraunces.variable} ${workSans.variable} font-sans bg-[#FBF6F3] text-[#2A2420]`}>
+      <body className={`${workSans.variable} ${workSans.variable} font-sans bg-[#FBF6F3] text-[#2A2420]`}>
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-JC37V8ZTQH"
           strategy="afterInteractive"

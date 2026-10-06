@@ -1,3 +1,4 @@
+import WhatsAppLink from "./WhatsAppLink";
 export default function Visit() {
   return (
     <section
@@ -50,14 +51,9 @@ export default function Visit() {
         </div>
 
         {/* WHATSAPP */}
-        <a
-          href="https://wa.me/message/GSDJGPZA2QRKA1"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-[#863D3D] text-[#FBF6F3] px-8 py-4 font-medium text-center hover:bg-[#5C2A2A] transition-colors"
-        >
+        <WhatsAppLink className="bg-[#863D3D] text-[#FBF6F3] px-8 py-4 font-medium text-center hover:bg-[#5C2A2A] transition-colors">
           Chamar no WhatsApp
-        </a>
+        </WhatsAppLink>
       </div>
     </section>
   );

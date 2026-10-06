@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
-
 import { useState } from "react";
+import WhatsAppLink from "./WhatsAppLink";
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -25,12 +25,9 @@ export default function Header() {
         </nav>
 
         
-          <a href="https://wa.me/message/GSDJGPZA2QRKA1"
-          target="_blank"
-          className="hidden md:inline-block bg-[#863D3D] text-[#FBF6F3] px-5 py-2.5 text-sm font-medium hover:bg-[#5C2A2A] transition-colors"
-        >
-          Falar no WhatsApp
-        </a>
+         <WhatsAppLink className="hidden md:inline-block bg-[#863D3D] text-[#FBF6F3] px-5 py-2.5 text-sm font-medium hover:bg-[#5C2A2A] transition-colors">
+            Falar no WhatsApp
+          </WhatsAppLink>
 
         <button
           className="md:hidden text-[#5C2A2A]"
