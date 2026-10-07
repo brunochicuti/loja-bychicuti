@@ -30,12 +30,25 @@ export default function Visit() {
 
           <div>
             <p className="text-[#863D3D] font-medium">Instagram</p>
-            <a
-            href="https://www.instagram.com/bychicuti"
-            target="_blank"
-            className="underline hover:text-[#863D3D]">
-              @bychicuti
-            </a>
+              <a
+                href="https://www.instagram.com/bychicuti"
+                target="_blank"
+                className="flex items-center gap-1.5 hover:text-[#863D3D]"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="5" />
+                  <circle cx="12" cy="12" r="4" />
+                  <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+                </svg>
+                @bychicuti
+              </a>
           </div>
         </div>
       </div>
