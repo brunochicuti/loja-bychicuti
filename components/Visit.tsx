@@ -29,8 +29,13 @@ export default function Visit() {
           </div>
 
           <div>
-            <p className="text-[#863D3D] font-medium">Contato</p>
-            <p>(67) 99691-0734</p>
+            <p className="text-[#863D3D] font-medium">Instagram</p>
+            <a
+            href="https://www.instagram.com/bychicuti"
+            target="_blank"
+            className="underline hover:text-[#863D3D]">
+              @bychicuti
+            </a>
           </div>
         </div>
       </div>
