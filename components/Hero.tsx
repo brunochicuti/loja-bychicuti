@@ -14,10 +14,6 @@ export default function Hero() {
           Peças íntimas femininas e masculinas, escolhidas com cuidado para o
           seu dia a dia.
         </p>
-        
-          <WhatsAppLink className="inline-block bg-[#863D3D] text-[#FBF6F3] px-8 py-4 font-medium hover:bg-[#5C2A2A] transition-colors">
-            Falar pelo WhatsApp
-          </WhatsAppLink>
       </div>
 
       <Carousel />

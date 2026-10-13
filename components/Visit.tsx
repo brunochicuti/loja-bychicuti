@@ -1,4 +1,3 @@
-import WhatsAppLink from "./WhatsAppLink";
 export default function Visit() {
   return (
     <section
@@ -67,11 +66,6 @@ export default function Visit() {
             title="Localização da ByChicuti"
           />
         </div>
-
-        {/* WHATSAPP */}
-        <WhatsAppLink className="bg-[#863D3D] text-[#FBF6F3] px-8 py-4 font-medium text-center hover:bg-[#5C2A2A] transition-colors">
-          Chamar no WhatsApp
-        </WhatsAppLink>
       </div>
     </section>
   );
