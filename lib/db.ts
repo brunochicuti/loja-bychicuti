@@ -12,6 +12,5 @@ export const db = new Pool({
   ssl: {
     rejectUnauthorized: true,
   },
-  options: "-c search_path=public",
   max: 5,
 });
