@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/exigir-admin";
@@ -8,12 +7,13 @@ export async function GET() {
     const resultado = await db.query(`
       SELECT
         id,
+        codigo,
         nome,
         descricao,
         preco,
         imagem,
         categoria
-      FROM produtos
+      FROM public.produtos
       WHERE ativo = TRUE
       ORDER BY nome ASC;
     `);
@@ -41,9 +41,19 @@ export async function POST(request: Request) {
     }
 
     const corpo = await request.json();
-    const { nome, descricao, preco, imagem, categoria } = corpo;
+
+    const {
+      codigo,
+      nome,
+      descricao,
+      preco,
+      imagem,
+      categoria,
+    } = corpo;
 
     if (
+      typeof codigo !== "string" ||
+      !/^\d{4}$/.test(codigo) ||
       typeof nome !== "string" ||
       !nome.trim() ||
       typeof preco !== "number" ||
@@ -53,7 +63,10 @@ export async function POST(request: Request) {
       !categoria.trim()
     ) {
       return NextResponse.json(
-        { erro: "Informe um nome, um preço válido e uma categoria." },
+        {
+          erro:
+            "Informe um código de 4 dígitos, um nome, um preço válido e uma categoria.",
+        },
         { status: 400 }
       );
     }
@@ -69,11 +82,19 @@ export async function POST(request: Request) {
     }
 
     const resultado = await db.query(
-      `INSERT INTO produtos
-        (nome, descricao, preco, imagem, categoria, ativo)
-       VALUES ($1, $2, $3, $4, $5, TRUE)
-       RETURNING id, nome, descricao, preco, imagem, categoria`,
+      `INSERT INTO public.produtos
+        (codigo, nome, descricao, preco, imagem, categoria, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+       RETURNING
+         id,
+         codigo,
+         nome,
+         descricao,
+         preco,
+         imagem,
+         categoria`,
       [
+        codigo,
         nome.trim(),
         descricao ?? null,
         preco,
@@ -88,6 +109,15 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Erro ao cadastrar produto:", error);
+
+    const erro = error as { code?: string };
+
+    if (erro.code === "23505") {
+      return NextResponse.json(
+        { erro: "Esse código já está cadastrado em outro produto." },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json(
       { erro: "Não foi possível cadastrar o produto." },

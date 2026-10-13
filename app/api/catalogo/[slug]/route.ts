@@ -23,8 +23,15 @@ export async function GET(
     const { slug } = await params;
 
     const resultado = await db.query(
-      `SELECT id, nome, descricao, preco, imagem, categoria
-       FROM produtos
+      `SELECT
+         id,
+         codigo,
+         nome,
+         descricao,
+         preco,
+         imagem,
+         categoria
+       FROM public.produtos
        WHERE ativo = TRUE
        ORDER BY id`
     );
@@ -43,14 +50,14 @@ export async function GET(
     const [cores, variacoes] = await Promise.all([
       db.query(
         `SELECT cor, imagem
-         FROM produto_cores
+         FROM public.produto_cores
          WHERE produto_id = $1
          ORDER BY cor`,
         [produto.id]
       ),
       db.query(
         `SELECT tamanho, cor, quantidade
-         FROM variacoes_estoque
+         FROM public.variacoes_estoque
          WHERE produto_id = $1
          ORDER BY cor, tamanho`,
         [produto.id]

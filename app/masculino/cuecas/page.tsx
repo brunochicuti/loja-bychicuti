@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 type Produto = {
   id: string;
+  codigo: string | null;
   nome: string;
   preco: string;
   imagem: string | null;
@@ -117,28 +118,16 @@ export default function CuecasPage() {
 
     switch (filtro) {
       case "Box infantil":
-        return (
-          nome.includes("box") &&
-          nome.includes("infantil")
-        );
+        return nome.includes("box") && nome.includes("infantil");
 
       case "Box adulta":
-        return (
-          nome.includes("box") &&
-          !nome.includes("infantil")
-        );
+        return nome.includes("box") && !nome.includes("infantil");
 
       case "Zorba infantil":
-        return (
-          nome.includes("zorba") &&
-          nome.includes("infantil")
-        );
+        return nome.includes("zorba") && nome.includes("infantil");
 
       case "Zorba adulta":
-        return (
-          nome.includes("zorba") &&
-          !nome.includes("infantil")
-        );
+        return nome.includes("zorba") && !nome.includes("infantil");
 
       default:
         return true;
@@ -220,7 +209,13 @@ export default function CuecasPage() {
                   {produto.nome}
                 </h2>
 
-                <p className="mt-1 text-[#863D3D] font-medium">
+                {produto.codigo && (
+                  <p className="mt-1 text-sm text-[#5C2A2A]/70">
+                    Código: {produto.codigo}
+                  </p>
+                )}
+
+                <p className="mt-2 text-[#863D3D] font-medium">
                   {formatarPreco(produto.preco)}
                 </p>
 

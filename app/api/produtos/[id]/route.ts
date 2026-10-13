@@ -29,7 +29,17 @@ export async function PATCH(
     }
 
     const corpo = await request.json();
-    const { nome, descricao, preco, imagem, categoria } = corpo;
+    const { codigo, nome, descricao, preco, imagem, categoria } = corpo;
+
+    if (
+      typeof codigo !== "string" ||
+      !/^\d{4}$/.test(codigo)
+    ) {
+      return NextResponse.json(
+        { erro: "O código deve conter exatamente 4 dígitos." },
+        { status: 400 }
+      );
+    }
 
     if (
       typeof nome !== "string" ||
@@ -63,16 +73,18 @@ export async function PATCH(
     }
 
     const resultado = await db.query(
-      `UPDATE produtos
-       SET nome = $1,
-           descricao = $2,
-           preco = $3,
-           imagem = $4,
-           categoria = $5
-       WHERE id = $6
+      `UPDATE public.produtos
+       SET codigo = $1,
+           nome = $2,
+           descricao = $3,
+           preco = $4,
+           imagem = $5,
+           categoria = $6
+       WHERE id = $7
          AND ativo = TRUE
-       RETURNING id, nome, descricao, preco, imagem, categoria`,
+       RETURNING id, codigo, nome, descricao, preco, imagem, categoria`,
       [
+        codigo,
         nome.trim(),
         descricao?.trim() || null,
         preco,
@@ -94,6 +106,15 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Erro ao editar produto:", error);
+
+    const erro = error as { code?: string };
+
+    if (erro.code === "23505") {
+      return NextResponse.json(
+        { erro: "Esse código já está cadastrado em outro produto." },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json(
       { erro: "Não foi possível editar o produto." },

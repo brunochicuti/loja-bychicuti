@@ -31,8 +31,10 @@ export default function RootLayout({
     <html lang="pt-BR" className="scroll-smooth" data-scroll-behavior="smooth">
       <body className={`${fraunces.variable} ${workSans.variable} font-sans bg-[#FBF6F3] text-[#2A2420]`}>
       <CarrinhoProvider>
-          <Header />
-          {children}
+          <Header/>
+          <div className="pt-24">
+            {children}
+          </div>
           <Footer />
       </CarrinhoProvider>
       </body>

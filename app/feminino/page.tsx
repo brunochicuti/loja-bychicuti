@@ -6,7 +6,7 @@ export default function Feminino() {
         "Modelos confortáveis para o dia a dia e diferentes ocasiões.",
       link: "/feminino/calcinhas",
     },
-    {
+    /*{
       nome: "Sutiãs",
       descricao:
         "Modelos para diferentes estilos, com conforto e praticidade.",
@@ -53,7 +53,7 @@ export default function Feminino() {
       descricao:
         "Peças marcantes com tecidos de alta qualidade para curtir os dias ensolarados com muito charme.",
       link: "/feminino/maios",
-    },
+    },*/
 
 
   ];

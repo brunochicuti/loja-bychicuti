@@ -8,16 +8,16 @@ import { useCarrinho } from "@/contexto/carrinhoContexto";
 
 const categoriasFemininas = [
   { nome: "Calcinhas", href: "/feminino/calcinhas" },
-  { nome: "Sutiãs", href: "/feminino/sutias" },
-  { nome: "Conjuntos", href: "/feminino/conjuntos" },
-  { nome: "Lingeries", href: "/feminino/lingerie" },
-  { nome: "Tops Fitness", href: "/feminino/tops" },
-  { nome: "Shorts", href: "/feminino/shorts" },
-  { nome: "Pijamas", href: "/feminino/pijamas" },
-  { nome: "Body", href: "/feminino/body" },
-  { nome: "Blusas", href: "/feminino/blusas" },
-  { nome: "Calças", href: "/feminino/calcas" },
-  { nome: "Maiôs", href: "/feminino/maios" },
+  //{ nome: "Sutiãs", href: "/feminino/sutias" },
+  //{ nome: "Conjuntos", href: "/feminino/conjuntos" },
+ // { nome: "Lingeries", href: "/feminino/lingerie" },
+  //{ nome: "Tops Fitness", href: "/feminino/tops" },
+  //{ nome: "Shorts", href: "/feminino/shorts" },
+  //{ nome: "Pijamas", href: "/feminino/pijamas" },
+ // { nome: "Body", href: "/feminino/body" },
+ // { nome: "Blusas", href: "/feminino/blusas" },
+  //{ nome: "Calças", href: "/feminino/calcas" },
+  //{ nome: "Maiôs", href: "/feminino/maios" },
 ];
 
 const categoriasMasculinas = [

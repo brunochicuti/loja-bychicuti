@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 type Produto = {
   id: number | string;
+  codigo: string | null;
   nome: string;
   descricao: string | null;
   preco: number | string;
@@ -73,6 +74,7 @@ export default function AdminPage() {
   const [produtoEditando, setProdutoEditando] = useState<number | string | null>(null);
 
   const [nome, setNome] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [preco, setPreco] = useState("");
   const [categoria, setCategoria] = useState("Calcinhas");
@@ -251,6 +253,7 @@ export default function AdminPage() {
     setCategoria("Calcinhas");
     setImagem("");
     setMensagem("");
+    setCodigo("");
   }
 
   function iniciarEdicao(produto: Produto) {
@@ -261,6 +264,7 @@ export default function AdminPage() {
     setCategoria(produto.categoria);
     setImagem(produto.imagem || "");
     setMensagem("");
+    setCodigo(produto.codigo || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -293,6 +297,7 @@ export default function AdminPage() {
           method: editando ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            codigo: codigo.trim(),
             nome: nome.trim(),
             descricao: descricao.trim() || null,
             preco: valor,
@@ -659,6 +664,24 @@ export default function AdminPage() {
                 onSubmit={salvarProduto}
                 className="mt-5 grid gap-4 sm:grid-cols-2"
               >
+
+                <label className="text-sm text-[#5C2A2A]">
+                  Código do produto *
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={codigo}
+                    onChange={(e) =>
+                      setCodigo(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
+                    maxLength={4}
+                    pattern="[0-9]{4}"
+                    required
+                    className="mt-2 w-full rounded border border-[#863D3D]/30 px-3 py-3"
+                    placeholder="Ex.: 0001"
+                  />
+                </label>
+
                 <label className="text-sm text-[#5C2A2A]">
                   Nome do produto *
                   <input
@@ -799,6 +822,11 @@ export default function AdminPage() {
                           <h3 className="font-medium text-[#5C2A2A]">
                             {produto.nome}
                           </h3>
+                          
+                          <p className="mt-1 text-sm text-[#863D3D]">
+                            Código: {produto.codigo || "Não informado"}
+                          </p>
+
                           <p className="mt-1 text-sm text-[#5C2A2A]/70">
                             {produto.categoria}
                           </p>

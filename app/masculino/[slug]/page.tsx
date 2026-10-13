@@ -6,6 +6,7 @@ import { useCarrinho } from "@/contexto/carrinhoContexto";
 
 type Produto = {
   id: number | string;
+  codigo: string | null;
   nome: string;
   descricao: string | null;
   preco: string | number;
@@ -162,7 +163,7 @@ export default function PaginaProdutoMasculino() {
   const preco = Number(produto.preco);
 
   const mensagem = encodeURIComponent(
-    `Olá! Tenho interesse no produto ${produto.nome}, cor ${corSelecionada}, tamanho ${tamanhoSelecionado}.`
+    `Olá! Tenho interesse no produto ${produto.nome}, código ${produto.codigo || "não informado"}, cor ${corSelecionada}, tamanho ${tamanhoSelecionado}.`
   );
 
   function adicionarProduto() {
@@ -217,6 +218,12 @@ export default function PaginaProdutoMasculino() {
           </p>
 
           <h1>{produto.nome}</h1>
+
+          {produto.codigo && (
+            <p className="produto-codigo">
+              Código do produto: <strong>{produto.codigo}</strong>
+            </p>
+          )}
 
           <p className="produto-preco">
             {preco.toLocaleString("pt-BR", {
@@ -299,9 +306,9 @@ export default function PaginaProdutoMasculino() {
             )}
 
           {corSelecionada &&
-            tamanhoSelecionado &&
-            variacaoSelecionada &&
-            variacaoSelecionada.quantidade > 0 ? (
+          tamanhoSelecionado &&
+          variacaoSelecionada &&
+          variacaoSelecionada.quantidade > 0 ? (
             <div className="produto-acoes">
               <button
                 type="button"
@@ -377,6 +384,13 @@ export default function PaginaProdutoMasculino() {
           text-transform: uppercase;
           letter-spacing: 1px;
           font-size: 12px;
+        }
+
+        .produto-codigo {
+          margin: 8px 0;
+          font-size: 14px;
+          color: #863d3d;
+          font-weight: 500;
         }
 
         .produto-info h1 {
