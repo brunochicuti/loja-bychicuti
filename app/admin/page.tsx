@@ -21,10 +21,17 @@ type Variacao = {
   quantidade: number;
 };
 
+type ImagemCor = {
+  id: number;
+  imagem: string;
+  ordem: number;
+};
+
 type CorProduto = {
   id: number;
   cor: string;
   imagem: string | null;
+  imagens?: ImagemCor[];
 };
 
 type Venda = {
@@ -81,6 +88,8 @@ export default function AdminPage() {
   const [imagem, setImagem] = useState("");
 
   const [produtoEstoque, setProdutoEstoque] = useState<Produto | null>(null);
+  const [codigoBuscaEstoque, setCodigoBuscaEstoque] = useState("");
+  const [mensagemBuscaEstoque, setMensagemBuscaEstoque] = useState("");
   const [variacoes, setVariacoes] = useState<Variacao[]>([]);
   const [cores, setCores] = useState<CorProduto[]>([]);
   const [tamanhoEstoque, setTamanhoEstoque] = useState("P");
@@ -102,6 +111,131 @@ export default function AdminPage() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregandoVendas, setCarregandoVendas] = useState(false);
   const [mensagemHistorico, setMensagemHistorico] = useState("");
+
+  const [imagemPrincipalCor, setImagemPrincipalCor] = useState("");
+  const [imagensAdicionaisCor, setImagensAdicionaisCor] = useState<string[]>([]);
+  const [novaImagemCor, setNovaImagemCor] = useState("");
+  const [salvandoFotosCor, setSalvandoFotosCor] = useState(false);
+
+  async function salvarFotosCor() {
+  if (!produtoEstoque) {
+    setMensagemEstoque("Selecione um produto primeiro.");
+    return;
+  }
+
+  const corSelecionada = cores.find(
+    (item) => item.cor === corEstoque
+  );
+
+  if (!corSelecionada) {
+    setMensagemEstoque(
+      "Selecione uma cor cadastrada no estoque. Se for uma cor nova, registre primeiro uma entrada."
+    );
+    return;
+  }
+
+  // Garante que o ID seja enviado como número inteiro.
+  const corId = Number(corSelecionada.id);
+  const principal = imagemPrincipalCor.trim();
+
+  if (!Number.isSafeInteger(corId) || corId <= 0) {
+    setMensagemEstoque(
+      "O ID da cor é inválido. Atualize o estoque e tente novamente."
+    );
+    return;
+  }
+
+  if (!principal) {
+    setMensagemEstoque(
+      "Informe o caminho da foto principal."
+    );
+    return;
+  }
+
+  if (principal.length > 2000) {
+    setMensagemEstoque(
+      "O caminho da foto principal ultrapassa o limite permitido."
+    );
+    return;
+  }
+
+  const imagensAdicionais = imagensAdicionaisCor.map(
+    (url) => url.trim()
+  );
+
+  if (
+    imagensAdicionais.length > 20 ||
+    imagensAdicionais.some(
+      (url) => !url || url.length > 2000
+    )
+  ) {
+    setMensagemEstoque(
+      "Confira as fotos adicionais cadastradas."
+    );
+    return;
+  }
+
+  setSalvandoFotosCor(true);
+  setMensagemEstoque("");
+
+  try {
+    const resposta = await fetch(
+      `/api/produtos/${produtoEstoque.id}/estoque`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          corId: corId,
+          imagem: principal,
+          imagens: imagensAdicionais,
+        }),
+      }
+    );
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      if (resposta.status === 401) {
+        setAutenticado(false);
+        throw new Error(
+          "Sua sessão expirou. Entre novamente."
+        );
+      }
+
+      throw new Error(
+        dados.erro || "Não foi possível salvar as fotos."
+      );
+    }
+
+    if (!dados.cor) {
+      throw new Error(
+        "A API não retornou os dados atualizados da cor."
+      );
+    }
+
+    setCores((atuais) =>
+      atuais.map((item) =>
+        Number(item.id) === corId ? dados.cor : item
+      )
+    );
+
+    setImagemAtualDaCor(dados.cor.imagem || "");
+
+    setMensagemEstoque(
+      "Fotos da cor salvas com sucesso!"
+    );
+  } catch (erro) {
+    setMensagemEstoque(
+      erro instanceof Error
+        ? erro.message
+        : "Erro ao salvar as fotos."
+    );
+  } finally {
+    setSalvandoFotosCor(false);
+  }
+}
 
   async function carregarProdutos() {
     const resposta = await fetch("/api/produtos", { cache: "no-store" });
@@ -354,6 +488,38 @@ export default function AdminPage() {
       setSalvando(false);
     }
   }
+function buscarEstoquePorCodigo(e: React.FormEvent<HTMLFormElement>) {
+  e.preventDefault();
+
+  const codigoBusca = codigoBuscaEstoque.trim();
+
+  if (!/^\d{4}$/.test(codigoBusca)) {
+    setMensagemBuscaEstoque("Informe um código de produto com 4 dígitos.");
+    return;
+  }
+
+  const produtoEncontrado = produtos.find(
+    (produto) => produto.codigo === codigoBusca
+  );
+
+  if (!produtoEncontrado) {
+    setMensagemBuscaEstoque(
+      "Nenhum produto ativo foi encontrado com esse código."
+    );
+    return;
+  }
+
+  setMensagemBuscaEstoque("");
+  setProdutoEstoque(produtoEncontrado);
+
+  void abrirEstoque(produtoEncontrado);
+
+  window.setTimeout(() => {
+    document
+      .getElementById("gerenciar-estoque")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 100);
+}
 
   async function abrirEstoque(produto: Produto) {
     setProdutoEstoque(produto);
@@ -607,11 +773,18 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    const corSelecionada = cores.find(
-      (item) => item.cor === corEstoque
-    );
+  const corSelecionada = cores.find(
+    (item) => item.cor === corEstoque
+  );
 
-    setImagemAtualDaCor(corSelecionada?.imagem || "");
+  setImagemAtualDaCor(corSelecionada?.imagem || "");
+  setImagemPrincipalCor(corSelecionada?.imagem || "");
+
+  setImagensAdicionaisCor(
+    (corSelecionada?.imagens || []).map((imagem) => imagem.imagem)
+  );
+
+  setNovaImagemCor("");
   }, [cores, corEstoque]);
 
   function formatarData(data: string | null) {
@@ -787,6 +960,53 @@ export default function AdminPage() {
               </form>
             </section>
 
+              <section className="mt-8 rounded border border-[#863D3D]/20 bg-white p-6">
+                <h2 className="text-xl font-medium text-[#5C2A2A]">
+                  Gerenciar estoque pelo código
+                </h2>
+
+                <p className="mt-2 text-sm text-[#5C2A2A]/70">
+                  Informe o código de quatro dígitos para localizar o produto e
+                  registrar entradas por tamanho e cor.
+                </p>
+
+                <form
+                  onSubmit={buscarEstoquePorCodigo}
+                  className="mt-4 flex flex-col gap-3 sm:flex-row"
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    pattern="[0-9]{4}"
+                    required
+                    value={codigoBuscaEstoque}
+                    onChange={(e) => {
+                      setCodigoBuscaEstoque(
+                        e.target.value.replace(/\D/g, "").slice(0, 4)
+                      );
+                      setMensagemBuscaEstoque("");
+                    }}
+                    placeholder="Ex.: 0001"
+                    aria-label="Código do produto"
+                    className="min-w-0 flex-1 rounded border border-[#863D3D]/30 px-3 py-3"
+                  />
+
+                  <button
+                    type="submit"
+                    className="rounded bg-[#863D3D] px-5 py-3 text-white hover:bg-[#5C2A2A]"
+                  >
+                    Buscar produto
+                  </button>
+                </form>
+
+                {mensagemBuscaEstoque && (
+                  <p role="alert" className="mt-3 text-sm text-red-700">
+                    {mensagemBuscaEstoque}
+                  </p>
+                )}
+              </section>
+
             <section className="mt-8 rounded border border-[#863D3D]/20 bg-white p-6">
               <h2 className="text-xl font-medium text-[#5C2A2A]">
                 Produtos cadastrados ({produtos.length})
@@ -822,7 +1042,7 @@ export default function AdminPage() {
                           <h3 className="font-medium text-[#5C2A2A]">
                             {produto.nome}
                           </h3>
-                          
+
                           <p className="mt-1 text-sm text-[#863D3D]">
                             Código: {produto.codigo || "Não informado"}
                           </p>
@@ -1147,6 +1367,96 @@ export default function AdminPage() {
                           </div>
                         </div>
                       )}
+
+                      <div className="sm:col-span-2 mt-4 rounded-xl border border-[#863D3D]/20 bg-[#FBF6F3] p-4">
+                        <h3 className="mb-4 text-lg font-semibold text-[#5C2A2A]">
+                          Fotos da cor: {corEstoque || "Selecione uma cor"}
+                        </h3>
+
+                        <label className="mb-4 block text-sm text-[#5C2A2A]">
+                          Foto principal
+                          <input
+                            type="text"
+                            value={imagemPrincipalCor}
+                            onChange={(e) => setImagemPrincipalCor(e.target.value)}
+                            placeholder="/produtos/calcinha-preta.jpeg"
+                            className="mt-2 w-full rounded border border-[#863D3D]/30 bg-white px-3 py-3"
+                          />
+                        </label>
+
+                        <label className="mb-2 block text-sm text-[#5C2A2A]">
+                          Nova foto adicional
+                          <input
+                            type="text"
+                            value={novaImagemCor}
+                            onChange={(e) => setNovaImagemCor(e.target.value)}
+                            placeholder="/produtos/calcinha-preta-lado.jpeg"
+                            className="mt-2 w-full rounded border border-[#863D3D]/30 bg-white px-3 py-3"
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const caminho = novaImagemCor.trim();
+
+                            if (!caminho) {
+                              setMensagemEstoque("Informe o caminho da foto.");
+                              return;
+                            }
+
+                            if (imagensAdicionaisCor.length >= 20) {
+                              setMensagemEstoque("Limite de 20 fotos adicionais.");
+                              return;
+                            }
+
+                            setImagensAdicionaisCor((atuais) => [...atuais, caminho]);
+                            setNovaImagemCor("");
+                            setMensagemEstoque("");
+                          }}
+                          className="mb-4 rounded border border-[#863D3D]/30 px-4 py-2 text-sm text-[#863D3D]"
+                        >
+                          Adicionar foto
+                        </button>
+
+                        {imagensAdicionaisCor.map((imagem, indice) => (
+                          <div key={indice} className="mb-3 flex gap-2">
+                            <input
+                              type="text"
+                              value={imagem}
+                              onChange={(e) => {
+                                setImagensAdicionaisCor((atuais) =>
+                                  atuais.map((item, i) =>
+                                    i === indice ? e.target.value : item
+                                  )
+                                );
+                              }}
+                              className="min-w-0 flex-1 rounded border border-[#863D3D]/30 bg-white px-3 py-2"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setImagensAdicionaisCor((atuais) =>
+                                  atuais.filter((_, i) => i !== indice)
+                                )
+                              }
+                              className="rounded border border-red-300 px-3 py-2 text-sm text-red-700"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={salvarFotosCor}
+                          disabled={salvandoFotosCor || !corEstoque}
+                          className="mt-3 rounded bg-[#863D3D] px-4 py-3 font-semibold text-white disabled:opacity-50"
+                        >
+                          {salvandoFotosCor ? "Salvando..." : "Salvar fotos da cor"}
+                        </button>
+                      </div>
 
                       <label className="text-sm text-[#5C2A2A]">
                         Quantidade a adicionar
