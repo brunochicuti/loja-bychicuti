@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -123,18 +122,37 @@ export default function PaginaProduto() {
     )
   );
 
+  // Tamanhos únicos, organizados numericamente em ordem crescente.
+  // Os tamanhos antigos continuam sendo exibidos caso estejam cadastrados.
   const tamanhosDisponiveis = [
     ...new Set(variacoes.map((v) => v.tamanho)),
   ].sort((a, b) => {
-    const ordem = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
-    const ia = ordem.indexOf(a.toUpperCase());
-    const ib = ordem.indexOf(b.toUpperCase());
+    const tamanhoA = a.trim().toUpperCase();
+    const tamanhoB = b.trim().toUpperCase();
 
-    if (ia === -1 && ib === -1) return a.localeCompare(b);
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
+    const ordemAntiga = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
 
-    return ia - ib;
+    const indiceA = ordemAntiga.indexOf(tamanhoA);
+    const indiceB = ordemAntiga.indexOf(tamanhoB);
+
+    const numericoA = /^\d+$/.test(tamanhoA);
+    const numericoB = /^\d+$/.test(tamanhoB);
+
+    if (numericoA && numericoB) {
+      return Number(tamanhoA) - Number(tamanhoB);
+    }
+
+    if (indiceA !== -1 && indiceB !== -1) {
+      return indiceA - indiceB;
+    }
+
+    if (numericoA) return -1;
+    if (numericoB) return 1;
+
+    if (indiceA !== -1) return -1;
+    if (indiceB !== -1) return 1;
+
+    return tamanhoA.localeCompare(tamanhoB, "pt-BR");
   });
 
   const variacaoSelecionada = variacoes.find(
@@ -226,7 +244,8 @@ export default function PaginaProduto() {
           <h1>{produto.nome}</h1>
 
           <p className="produto-codigo">
-            Código do produto: <strong>{produto.codigo || "Não informado"}</strong>
+            Código do produto:{" "}
+            <strong>{produto.codigo || "Não informado"}</strong>
           </p>
 
           <p className="produto-preco">
@@ -358,7 +377,7 @@ export default function PaginaProduto() {
         .produto-pagina {
           max-width: 1100px;
           margin: 0 auto;
-          padding: 36px 20px 60px;
+          padding: 80px 20px 60px;
           color: #5c2a2a;
         }
 

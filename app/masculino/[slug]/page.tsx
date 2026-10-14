@@ -109,23 +109,25 @@ export default function PaginaProdutoMasculino() {
       <main className="produto-pagina">
         <h1>Produto indisponível</h1>
         <p>{erro || "Não encontramos esse produto."}</p>
-        <a href="/masculino/cuecas">
-          Voltar para cuecas
-        </a>
+        <a href="/masculino/cuecas">Voltar para cuecas</a>
       </main>
     );
   }
 
   const { produto, cores, variacoes } = catalogo;
 
+  // Mostra apenas variações que a API retornou com estoque positivo.
+  // A API pública também deve filtrar as variações inativas no banco.
+  const variacoesDisponiveis = variacoes.filter(
+    (v) => Number(v.quantidade) > 0
+  );
+
   const coresDisponiveis = cores.filter((cor) =>
-    variacoes.some(
-      (v) => v.cor === cor.cor && v.quantidade > 0
-    )
+    variacoesDisponiveis.some((v) => v.cor === cor.cor)
   );
 
   const tamanhosDisponiveis = [
-    ...new Set(variacoes.map((v) => v.tamanho)),
+    ...new Set(variacoesDisponiveis.map((v) => v.tamanho)),
   ].sort((a, b) => {
     const ordem = [
       "PP", "P", "M", "G", "GG", "XG", "XGG",
@@ -142,18 +144,17 @@ export default function PaginaProdutoMasculino() {
     return ia - ib;
   });
 
-  const variacaoSelecionada = variacoes.find(
+  const variacaoSelecionada = variacoesDisponiveis.find(
     (v) =>
       v.cor === corSelecionada &&
       v.tamanho === tamanhoSelecionado
   );
 
   const emEstoque = (cor: string, tamanho: string) =>
-    variacoes.some(
+    variacoesDisponiveis.some(
       (v) =>
         v.cor === cor &&
-        v.tamanho === tamanho &&
-        v.quantidade > 0
+        v.tamanho === tamanho
     );
 
   const imagemAtual =
@@ -268,10 +269,8 @@ export default function PaginaProdutoMasculino() {
             {tamanhosDisponiveis.map((tamanho) => {
               const disponivel = corSelecionada
                 ? emEstoque(corSelecionada, tamanho)
-                : variacoes.some(
-                    (v) =>
-                      v.tamanho === tamanho &&
-                      v.quantidade > 0
+                : variacoesDisponiveis.some(
+                    (v) => v.tamanho === tamanho
                   );
 
               return (
@@ -292,7 +291,6 @@ export default function PaginaProdutoMasculino() {
                   }}
                 >
                   {tamanho}
-                  {!disponivel ? " — esgotado" : ""}
                 </button>
               );
             })}
@@ -349,7 +347,7 @@ export default function PaginaProdutoMasculino() {
         .produto-pagina {
           max-width: 1100px;
           margin: 0 auto;
-          padding: 130px 20px 60px;
+          padding: 80px 20px 60px;
           color: #5c2a2a;
         }
 

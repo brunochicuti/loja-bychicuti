@@ -135,7 +135,7 @@ export default function CuecasPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#FBF6F3] pt-32 pb-20">
+    <main className="min-h-screen bg-[#FBF6F3] pt-20 pb-20">
       <div className="max-w-6xl mx-auto px-6">
         <div className="mb-12">
           <p className="text-sm uppercase tracking-widest text-[#863D3D] mb-3">

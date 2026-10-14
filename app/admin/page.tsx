@@ -55,27 +55,32 @@ const categorias = [
   "Outros",
 ];
 
-const tamanhosPadrao = [  "2",
-                          "4",
-                          "6",
-                          "8",
-                          "10",
-                          "12",
-                          "14",
-                          "16",
-                          "40",
-                          "42",
-                          "44",
-                          "46",
-                          "48",
-                          "52",
-                          "PP",
-                          "P",
-                          "M",
-                          "G",
-                          "GG",
-                          "XG",
-                          "Único",];
+const tamanhosInfantis = [
+  "2",
+  "4",
+  "6",
+  "8",
+  "10",
+  "12",
+  "14",
+  "16",
+];
+
+const tamanhosAdultos = [
+  "40",
+  "42",
+  "44",
+  "46",
+  "48",
+  "50",
+  "52",
+];
+
+const tamanhosPadrao = [
+  ...tamanhosInfantis,
+  ...tamanhosAdultos,
+  "Único",
+];
 
 export default function AdminPage() {
   const [senha, setSenha] = useState("");
@@ -98,7 +103,7 @@ export default function AdminPage() {
   const [mensagemBuscaEstoque, setMensagemBuscaEstoque] = useState("");
   const [variacoes, setVariacoes] = useState<Variacao[]>([]);
   const [cores, setCores] = useState<CorProduto[]>([]);
-  const [tamanhoEstoque, setTamanhoEstoque] = useState("P");
+  const [tamanhoEstoque, setTamanhoEstoque] = useState("2");
   const [corEstoque, setCorEstoque] = useState("");
   const [quantidadeEstoque, setQuantidadeEstoque] = useState("1");
   const [carregandoEstoque, setCarregandoEstoque] = useState(false);
@@ -534,7 +539,7 @@ function buscarEstoquePorCodigo(e: React.FormEvent<HTMLFormElement>) {
     setMensagemEstoque("");
     setCarregandoEstoque(true);
     setCorEstoque("");
-    setTamanhoEstoque("P");
+    setTamanhoEstoque("2");
     setQuantidadeEstoque("1");
 
     try {
@@ -1325,16 +1330,11 @@ function buscarEstoquePorCodigo(e: React.FormEvent<HTMLFormElement>) {
                           onChange={(e) => setTamanhoEstoque(e.target.value)}
                           className="mt-2 w-full rounded border border-[#863D3D]/30 bg-white px-3 py-3"
                         >
-                          {Array.from(
-                            new Set([
-                              ...tamanhosPadrao,
-                              ...variacoes.map((v) => v.tamanho),
-                            ])
-                          ).map((tamanho) => (
-                            <option key={tamanho} value={tamanho}>
-                              {tamanho}
-                            </option>
-                          ))}
+                        {tamanhosPadrao.map((tamanho) => (
+                          <option key={tamanho} value={tamanho}>
+                            {tamanho}
+                          </option>
+                        ))}
                         </select>
                       </label>
 

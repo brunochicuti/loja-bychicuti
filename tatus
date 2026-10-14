@@ -1,0 +1,64 @@
+[33m49e5937[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Corrige tipo dos itens do carrinho
+ app/admin/page.tsx                                 | 1255 [32m++++++++++++++++++++[m
+ app/api/admin/login/route.ts                       |   42 [32m+[m
+ app/api/admin/verificar/route.ts                   |   17 [32m+[m
+ app/api/catalogo/[slug]/route.ts                   |   73 [32m++[m
+ app/api/listar-tabelas/route.ts                    |   34 [32m+[m
+ app/api/produtos/[id]/estoque/route.ts             |  158 [32m+++[m
+ app/api/produtos/[id]/route.ts                     |  103 [32m++[m
+ app/api/produtos/route.ts                          |   97 [32m++[m
+ app/api/test-db/route.ts                           |   24 [32m+[m
+ app/api/vendas/route.ts                            |  162 [32m+++[m
+ app/api/verificar-codificacao/route.ts             |   27 [32m+[m
+ app/feminino/[slug]/page.tsx                       |  501 [32m++++++++[m
+ app/feminino/blusas/page.tsx                       |   11 [32m+[m
+ app/feminino/body/page.tsx                         |   12 [32m+[m
+ app/feminino/calcas/page.tsx                       |   16 [32m+[m
+ app/feminino/calcinhas/calcinha-basica/page.tsx    |  204 [32m++++[m
+ app/feminino/calcinhas/page.tsx                    |  239 [32m++++[m
+ app/feminino/maios/page.tsx                        |   11 [32m+[m
+ app/feminino/page.tsx                              |  100 [32m++[m
+ app/feminino/pijamas/page.tsx                      |   17 [32m+[m
+ app/feminino/produtos.ts                           |   15 [32m+[m
+ app/feminino/shorts/page.tsx                       |   17 [32m+[m
+ app/feminino/sutias/page.tsx                       |   21 [32m+[m
+ app/feminino/tops/page.tsx                         |   20 [32m+[m
+ app/layout.tsx                                     |   35 [32m+[m[31m-[m
+ app/masculino/[slug]/page.tsx                      |  492 [32m++++++++[m
+ app/masculino/cuecas/page.tsx                      |  237 [32m++++[m
+ app/masculino/page.tsx                             |   51 [32m+[m
+ app/page.tsx                                       |    4 [31m-[m
+ components/Categories.tsx                          |   25 [32m+[m[31m-[m
+ components/Header.tsx                              |  348 [32m+++++[m[31m-[m
+ components/Hero.tsx                                |    4 [31m-[m
+ components/ProdutosCard.tsx                        |   27 [32m+[m
+ components/Visit.tsx                               |    6 [31m-[m
+ components/WhatsAppLink.tsx                        |    7 [32m+[m[31m-[m
+ components/catalogoFeminino.tsx                    |  351 [32m++++++[m
+ contexto/carrinhoContexto.tsx                      |  218 [32m++++[m
+ lib/admin-auth.ts                                  |   64 [32m+[m
+ lib/db.ts                                          |    9 [32m+[m
+ lib/exigir-admin.ts                                |    9 [32m+[m
+ loja-bychicuti                                     |    1 [32m+[m
+ package-lock.json                                  |  161 [32m++[m[31m-[m
+ package.json                                       |    2 [32m+[m
+ public/file.svg                                    |    1 [31m-[m
+ public/globe.svg                                   |    1 [31m-[m
+ public/images/imagem1.jpeg                         |  Bin [31m156627[m -> [32m0[m bytes
+ public/images/imagem2.jpeg                         |  Bin [31m233683[m -> [32m0[m bytes
+ public/images/imagem4.jpeg                         |  Bin [31m128080[m -> [32m0[m bytes
+ public/logo.png                                    |  Bin [31m64670[m -> [32m0[m bytes
+ public/next.svg                                    |    1 [31m-[m
+ .../imagem3.jpeg => produtos/calcinha-basica.jpeg} |  Bin
+ public/produtos/calcinha_basica_azul.jpeg          |  Bin [31m0[m -> [32m497166[m bytes
+ public/produtos/calcinha_basica_marrom.jpeg        |  Bin [31m0[m -> [32m515497[m bytes
+ public/produtos/calcinha_basica_nude.jpeg          |  Bin [31m0[m -> [32m517688[m bytes
+ public/produtos/calcinha_basica_roxo.jpeg          |  Bin [31m0[m -> [32m497434[m bytes
+ public/produtos/calcinha_basica_verde.jpeg         |  Bin [31m0[m -> [32m476838[m bytes
+ public/produtos/calcinha_basica_vermelha.jpeg      |  Bin [31m0[m -> [32m502034[m bytes
+ public/produtos/calcinha_basica_vinho.jpeg         |  Bin [31m0[m -> [32m450407[m bytes
+ public/produtos/calcinha_senhora_azul.jpeg         |  Bin [31m0[m -> [32m427502[m bytes
+ public/produtos/cueca_box_marrom.jpeg              |  Bin [31m0[m -> [32m393064[m bytes
+ public/vercel.svg                                  |    1 [31m-[m
+ public/window.svg                                  |    1 [31m-[m
+ 62 files changed, 5163 insertions(+), 69 deletions(-)

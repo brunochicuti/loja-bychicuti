@@ -17,7 +17,7 @@ const mensagem = `Olá! Tenho interesse na Calcinha Básica Lisa. Tamanho: ${tam
 
   return (
 <main className="min-h-screen bg-[#FBF6F3] pb-20">
-    <div className="max-w-6xl mx-auto px-6 pt-24">
+    <div className="max-w-6xl mx-auto px-40 pt-24">
         <h1 className="font-serif text-4xl md:text-5xl text-[#5C2A2A]">
           Calcinha Básica Lisa
         </h1>

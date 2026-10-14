@@ -6,6 +6,12 @@ type Contexto = {
   params: Promise<{ slug: string }>;
 };
 
+const TAMANHOS_PERMITIDOS = [
+  "2", "4", "6", "8", "10", "12", "14", "16",
+  "40", "42", "44", "46", "48", "50", "52",
+  "Único",
+];
+
 function criarSlug(nome: string) {
   return nome
     .normalize("NFD")
@@ -43,7 +49,10 @@ export async function GET(
     if (!produto) {
       return NextResponse.json(
         { erro: "Produto não encontrado." },
-        { status: 404 }
+        {
+          status: 404,
+          headers: { "Cache-Control": "no-store" },
+        }
       );
     }
 
@@ -59,22 +68,34 @@ export async function GET(
         `SELECT tamanho, cor, quantidade
          FROM public.variacoes_estoque
          WHERE produto_id = $1
+           AND ativo = TRUE
+           AND tamanho = ANY($2::text[])
          ORDER BY cor, tamanho`,
-        [produto.id]
+        [produto.id, TAMANHOS_PERMITIDOS]
       ),
     ]);
 
-    return NextResponse.json({
-      produto,
-      cores: cores.rows,
-      variacoes: variacoes.rows,
-    });
+    return NextResponse.json(
+      {
+        produto,
+        cores: cores.rows,
+        variacoes: variacoes.rows,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("Erro ao buscar produto do catálogo:", error);
 
     return NextResponse.json(
       { erro: "Não foi possível carregar o produto." },
-      { status: 500 }
+      {
+        status: 500,
+        headers: { "Cache-Control": "no-store" },
+      }
     );
   }
 }

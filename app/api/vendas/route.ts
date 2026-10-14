@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/exigir-admin";
@@ -48,7 +47,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ vendas });
   } catch (error) {
     console.error("Erro ao consultar histórico de vendas:", error);
-    return respostaErro("Não foi possível carregar o histórico de vendas.", 500);
+    return respostaErro(
+      "Não foi possível carregar o histórico de vendas.",
+      500
+    );
   }
 }
 
@@ -74,11 +76,13 @@ export async function POST(request: Request) {
     const { variacaoId, quantidade } = corpo;
 
     if (
+      typeof variacaoId !== "number" ||
       !Number.isSafeInteger(variacaoId) ||
-      Number(variacaoId) <= 0 ||
+      variacaoId <= 0 ||
+      typeof quantidade !== "number" ||
       !Number.isSafeInteger(quantidade) ||
-      Number(quantidade) <= 0 ||
-      Number(quantidade) > 1000000
+      quantidade <= 0 ||
+      quantidade > 1000000
     ) {
       return respostaErro(
         "Informe uma variação válida e uma quantidade inteira maior que zero.",
@@ -93,6 +97,7 @@ export async function POST(request: Request) {
       `UPDATE variacoes_estoque
        SET quantidade = quantidade - $1
        WHERE id = $2
+         AND ativo = TRUE
          AND quantidade >= $1
          AND EXISTS (
            SELECT 1
@@ -108,15 +113,23 @@ export async function POST(request: Request) {
       await cliente.query("ROLLBACK");
 
       const verificacao = await db.query(
-        `SELECT v.quantidade
+        `SELECT v.quantidade, v.ativo
          FROM variacoes_estoque v
          JOIN produtos p ON p.id = v.produto_id
-         WHERE v.id = $1 AND p.ativo = TRUE`,
+         WHERE v.id = $1
+           AND p.ativo = TRUE`,
         [variacaoId]
       );
 
       if (verificacao.rowCount === 0) {
         return respostaErro("Variação ou produto não encontrado.", 404);
+      }
+
+      if (verificacao.rows[0].ativo === false) {
+        return respostaErro(
+          "Essa variação está desativada e não pode ser vendida.",
+          409
+        );
       }
 
       return respostaErro(

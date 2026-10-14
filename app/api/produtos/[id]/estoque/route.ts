@@ -7,8 +7,21 @@ type Contexto = {
   params: Promise<{ id: string }>;
 };
 
+const TAMANHOS_PERMITIDOS = new Set([
+  "2", "4", "6", "8", "10", "12", "14", "16",
+  "40", "42", "44", "46", "48", "50", "52",
+  "Único",
+]);
+
 function respostaErro(mensagem: string, status: number) {
   return NextResponse.json({ erro: mensagem }, { status });
+}
+
+function tamanhoPermitido(tamanho: unknown): tamanho is string {
+  return (
+    typeof tamanho === "string" &&
+    TAMANHOS_PERMITIDOS.has(tamanho.trim())
+  );
 }
 
 export async function GET(
@@ -39,8 +52,10 @@ export async function GET(
       `SELECT id, tamanho, cor, quantidade
        FROM variacoes_estoque
        WHERE produto_id = $1
+         AND ativo = TRUE
+         AND tamanho = ANY($2::text[])
        ORDER BY cor, tamanho`,
-      [id]
+      [id, Array.from(TAMANHOS_PERMITIDOS)]
     );
 
     const cores = await db.query(
@@ -68,10 +83,17 @@ export async function GET(
       [id]
     );
 
-    return NextResponse.json({
-      variacoes: resultado.rows,
-      cores: cores.rows,
-    });
+    return NextResponse.json(
+      {
+        variacoes: resultado.rows,
+        cores: cores.rows,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("Erro ao consultar estoque:", error);
     return respostaErro("Não foi possível consultar o estoque.", 500);
@@ -93,22 +115,31 @@ export async function POST(
       return respostaErro("ID de produto inválido.", 400);
     }
 
-    const corpo = await request.json();
+    let corpo: {
+      tamanho?: unknown;
+      cor?: unknown;
+      quantidade?: unknown;
+    };
+
+    try {
+      corpo = await request.json();
+    } catch {
+      return respostaErro("O corpo da requisição é inválido.", 400);
+    }
+
     const { tamanho, cor, quantidade } = corpo;
 
     if (
-      typeof tamanho !== "string" ||
-      !tamanho.trim() ||
-      tamanho.trim().length > 20 ||
+      !tamanhoPermitido(tamanho) ||
       typeof cor !== "string" ||
       !cor.trim() ||
       cor.trim().length > 50 ||
       !Number.isSafeInteger(quantidade) ||
-      quantidade < 0 ||
-      quantidade > 1000000
+      Number(quantidade) < 1 ||
+      Number(quantidade) > 1000000
     ) {
       return respostaErro(
-        "Informe um tamanho, uma cor e uma quantidade válida.",
+        "Informe um tamanho permitido, uma cor e uma quantidade inteira entre 1 e 1000000.",
         400
       );
     }
@@ -125,11 +156,32 @@ export async function POST(
     const corNormalizada = cor.trim();
     const tamanhoNormalizado = tamanho.trim();
 
+    const existente = await db.query(
+      `SELECT id, ativo
+       FROM variacoes_estoque
+       WHERE produto_id = $1
+         AND tamanho = $2
+         AND cor = $3`,
+      [id, tamanhoNormalizado, corNormalizada]
+    );
+
+    if (
+      existente.rows.some(
+        (item: { ativo: boolean }) => item.ativo === false
+      )
+    ) {
+      return respostaErro(
+        "Essa variação está desativada e não pode receber estoque.",
+        409
+      );
+    }
+
     const resultado = await db.query(
       `WITH cor_registrada AS (
          INSERT INTO produto_cores (produto_id, cor)
          VALUES ($1, $2)
          ON CONFLICT (produto_id, cor) DO NOTHING
+         RETURNING id
        ),
        variacao AS (
          INSERT INTO variacoes_estoque
@@ -139,6 +191,7 @@ export async function POST(
          DO UPDATE SET
            quantidade =
              variacoes_estoque.quantidade + EXCLUDED.quantidade
+         WHERE variacoes_estoque.ativo = TRUE
          RETURNING id, produto_id, tamanho, cor, quantidade
        ),
        movimento AS (
@@ -150,20 +203,23 @@ export async function POST(
            $4,
            'Entrada de estoque pelo painel administrativo'
          FROM variacao
-         WHERE $4 > 0
          RETURNING id
        )
        SELECT * FROM variacao`,
       [id, corNormalizada, tamanhoNormalizado, quantidade]
     );
 
-    return NextResponse.json(
-      {
-        mensagem: "Estoque atualizado com sucesso.",
-        variacao: resultado.rows[0],
-      },
-      { status: 200 }
-    );
+    if (resultado.rowCount === 0) {
+      return respostaErro(
+        "Não foi possível atualizar essa variação.",
+        409
+      );
+    }
+
+    return NextResponse.json({
+      mensagem: "Estoque atualizado com sucesso.",
+      variacao: resultado.rows[0],
+    });
   } catch (error) {
     console.error("Erro ao atualizar estoque:", error);
     return respostaErro("Não foi possível atualizar o estoque.", 500);
@@ -185,14 +241,25 @@ export async function PATCH(
       return respostaErro("ID de produto inválido.", 400);
     }
 
-    const corpo = await request.json();
+    let corpo: {
+      corId?: unknown;
+      imagem?: unknown;
+      imagens?: unknown;
+    };
+
+    try {
+      corpo = await request.json();
+    } catch {
+      return respostaErro("O corpo da requisição é inválido.", 400);
+    }
+
     const { corId, imagem, imagens } = corpo;
 
     if (
       !Number.isSafeInteger(corId) ||
-      corId <= 0 ||
+      Number(corId) <= 0 ||
       typeof imagem !== "string" ||
-      imagem.trim().length === 0 ||
+      !imagem.trim() ||
       imagem.trim().length > 2000
     ) {
       return respostaErro(
@@ -203,21 +270,28 @@ export async function PATCH(
 
     if (
       imagens !== undefined &&
-      (
-        !Array.isArray(imagens) ||
+      (!Array.isArray(imagens) ||
         imagens.length > 20 ||
         imagens.some(
           (item: unknown) =>
             typeof item !== "string" ||
             !item.trim() ||
             item.trim().length > 2000
-        )
-      )
+        ))
     ) {
       return respostaErro(
         "A lista de imagens adicionais é inválida.",
         400
       );
+    }
+
+    const produto = await db.query(
+      "SELECT id FROM produtos WHERE id = $1 AND ativo = TRUE",
+      [id]
+    );
+
+    if (produto.rowCount === 0) {
+      return respostaErro("Produto não encontrado.", 404);
     }
 
     const corEncontrada = await db.query(
@@ -284,6 +358,9 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Erro ao atualizar fotos da cor:", error);
-    return respostaErro("Não foi possível atualizar as fotos da cor.", 500);
+    return respostaErro(
+      "Não foi possível atualizar as fotos da cor.",
+      500
+    );
   }
 }

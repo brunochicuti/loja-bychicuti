@@ -12,15 +12,7 @@ type Produto = {
   slug: string;
 };
 
-const categorias = [
-  "Todos",
-  "Básicas",
-  "Fio dental",
-  "Tangas",
-  "Cintura alta",
-  "Plus size",
-  "Infantil",
-];
+const categorias = ["Todos", "Básico", "Fio", "Rendado", "Infantil"];
 
 function criarSlug(nome: string) {
   return nome
@@ -46,36 +38,34 @@ function formatarPreco(preco: string) {
   });
 }
 
-function pertenceAsBasicas(nome: string) {
+function pertenceAoInfantil(nome: string) {
+  return nome.includes("infantil");
+}
+
+function pertenceAoFio(nome: string) {
+  return (
+    nome.includes("fio dental") ||
+    nome.includes("fio tirinha") ||
+    nome.startsWith("fio ") ||
+    nome.includes("fio-dental")
+  );
+}
+
+function pertenceAoRendado(nome: string) {
+  return (
+    nome.includes("renda") ||
+    nome.includes("rendad") ||
+    nome.includes("rendinha") ||
+    nome.includes("rendada") ||
+    nome.includes("rendado")
+  );
+}
+
+function pertenceAoBasico(nome: string) {
   return (
     nome.includes("basica") ||
-    nome.includes("senhora") ||
-    nome.includes("cos duplo") ||
-    nome.includes("lateral dupla") ||
-    nome.includes("pala") ||
-    nome.includes("calesson") ||
-    nome.includes("infantil simples") ||
-    nome.includes("infantil recorte") ||
-    nome.includes("rendinha") ||
-    nome.includes("cueca feminina")
-  );
-}
-
-function pertenceAoFioDental(nome: string) {
-  return (
-    nome.startsWith("fio ") ||
-    nome.includes("fio dental") ||
-    nome.includes("fio tirinha")
-  );
-}
-
-function pertenceACinturaAlta(nome: string) {
-  return (
-    nome.includes("cintura alta") ||
-    nome.includes("cos super alto") ||
-    nome.includes("cos alto") ||
-    nome.includes("super alto") ||
-    nome.includes("alto drapeado")
+    nome.includes("basico") ||
+    nome.includes("simples")
   );
 }
 
@@ -126,27 +116,33 @@ export default function CalcinhasPage() {
   const produtosFiltrados = produtos.filter((produto) => {
     const nome = normalizarTexto(produto.nome);
 
+    // Infantil é uma categoria exclusiva.
+    if (filtro === "Todos") {
+      return true;
+    }
+
+    // O filtro Infantil mostra somente as infantis.
+    if (filtro === "Infantil") {
+      return pertenceAoInfantil(nome);
+    }
+
+    // Os outros filtros não incluem produtos infantis.
+    if (pertenceAoInfantil(nome)) {
+      return false;
+}
+
     switch (filtro) {
       case "Todos":
         return true;
 
-      case "Básicas":
-        return pertenceAsBasicas(nome);
+      case "Básico":
+        return pertenceAoBasico(nome);
 
-      case "Fio dental":
-        return pertenceAoFioDental(nome);
+      case "Fio":
+        return pertenceAoFio(nome);
 
-      case "Tangas":
-        return nome.includes("tanga");
-
-      case "Cintura alta":
-        return pertenceACinturaAlta(nome);
-
-      case "Plus size":
-        return nome.includes("plus size");
-
-      case "Infantil":
-        return nome.includes("infantil");
+      case "Rendado":
+        return !pertenceAoFio(nome) && pertenceAoRendado(nome);
 
       default:
         return true;
@@ -154,9 +150,13 @@ export default function CalcinhasPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#FBF6F3] pt-32 pb-20">
+    <main className="min-h-screen bg-[#FBF6F3] pt-20 pb-20">
       <div className="max-w-6xl mx-auto px-6">
         <div className="mb-12">
+          <p className="text-sm uppercase tracking-widest text-[#863D3D] mb-3">
+            By Chicuti
+          </p>
+
           <h1 className="font-serif text-4xl md:text-5xl text-[#5C2A2A]">
             Calcinhas
           </h1>
