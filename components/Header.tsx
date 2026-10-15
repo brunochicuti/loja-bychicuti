@@ -1,34 +1,94 @@
-
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import WhatsAppLink from "./WhatsAppLink";
 import { useCarrinho } from "@/contexto/carrinhoContexto";
 
+type ProdutoBusca = {
+  id: number | string;
+  codigo: string | null;
+  nome: string;
+  descricao?: string | null;
+  preco: string | number;
+  imagem: string | null;
+  categoria: string;
+  slug: string;
+};
+
 const categoriasFemininas = [
   { nome: "Calcinhas", href: "/feminino/calcinhas" },
-  //{ nome: "Sutiãs", href: "/feminino/sutias" },
-  //{ nome: "Conjuntos", href: "/feminino/conjuntos" },
- // { nome: "Lingeries", href: "/feminino/lingerie" },
-  //{ nome: "Tops Fitness", href: "/feminino/tops" },
-  //{ nome: "Shorts", href: "/feminino/shorts" },
-  //{ nome: "Pijamas", href: "/feminino/pijamas" },
- // { nome: "Body", href: "/feminino/body" },
- // { nome: "Blusas", href: "/feminino/blusas" },
-  //{ nome: "Calças", href: "/feminino/calcas" },
-  //{ nome: "Maiôs", href: "/feminino/maios" },
 ];
 
 const categoriasMasculinas = [
   { nome: "Cuecas", href: "/masculino/cuecas" },
 ];
 
+function criarSlug(nome: string) {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function normalizarTexto(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function formatarPreco(preco: string | number) {
+  const valor = Number(preco);
+
+  if (!Number.isFinite(valor)) {
+    return "Preço indisponível";
+  }
+
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function obterLinkProduto(produto: ProdutoBusca) {
+  const categoria = normalizarTexto(produto.categoria);
+  const nome = normalizarTexto(produto.nome);
+
+  if (categoria.includes("cueca")) {
+    return `/masculino/${produto.slug}`;
+  }
+
+  // Página feminina que já existe no site.
+  if (
+    nome === "calcinha basica lisa" ||
+    nome === "calcinha basica"
+  ) {
+    return "/feminino/calcinhas/calcinha-basica";
+  }
+
+  // Para as demais categorias femininas, abre a listagem.
+  if (categoria.includes("calcinha")) {
+    return "/feminino/calcinhas";
+  }
+
+  return "/feminino";
+}
+
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [openFeminino, setOpenFeminino] = useState(false);
   const [openMasculino, setOpenMasculino] = useState(false);
   const [openCarrinho, setOpenCarrinho] = useState(false);
+
+  const [openBusca, setOpenBusca] = useState(false);
+  const [termoBusca, setTermoBusca] = useState("");
+  const [produtos, setProdutos] = useState<ProdutoBusca[]>([]);
+  const [carregandoBusca, setCarregandoBusca] = useState(false);
+  const [erroBusca, setErroBusca] = useState("");
 
   const { carrinho, carregado, removerDoCarrinho } = useCarrinho();
 
@@ -41,6 +101,74 @@ export default function Header() {
     (total, item) => total + item.preco * item.quantidade,
     0
   );
+
+  useEffect(() => {
+    if (!openBusca) return;
+
+    let ativo = true;
+
+    async function carregarProdutos() {
+      try {
+        setCarregandoBusca(true);
+        setErroBusca("");
+
+        const resposta = await fetch("/api/produtos", {
+          cache: "no-store",
+        });
+
+        if (!resposta.ok) {
+          throw new Error("Não foi possível carregar os produtos.");
+        }
+
+        const dados = await resposta.json();
+
+        if (!Array.isArray(dados.produtos)) {
+          throw new Error("A lista de produtos está indisponível.");
+        }
+
+        if (ativo) {
+          setProdutos(
+            dados.produtos.map((produto: Omit<ProdutoBusca, "slug">) => ({
+              ...produto,
+              slug: criarSlug(produto.nome),
+            }))
+          );
+        }
+      } catch {
+        if (ativo) {
+          setErroBusca(
+            "Não foi possível carregar os produtos. Tente novamente."
+          );
+        }
+      } finally {
+        if (ativo) {
+          setCarregandoBusca(false);
+        }
+      }
+    }
+
+    carregarProdutos();
+
+    return () => {
+      ativo = false;
+    };
+  }, [openBusca]);
+
+  const termoNormalizado = normalizarTexto(termoBusca);
+
+  const produtosEncontrados = termoNormalizado
+    ? produtos
+        .filter((produto) => {
+          const nome = normalizarTexto(produto.nome);
+          const codigo = normalizarTexto(produto.codigo || "");
+
+          return (
+            nome.includes(termoNormalizado) ||
+            codigo.includes(termoNormalizado)
+          );
+        })
+        .slice(0, 8)
+    : [];
 
   const mensagemCarrinho = `Olá! Gostaria de fazer um pedido na ByChicuti!
 
@@ -61,9 +189,14 @@ Total: R$ ${valorTotal.toFixed(2).replace(".", ",")}
 
 Gostaria de finalizar minha compra.`;
 
+  function fecharBusca() {
+    setOpenBusca(false);
+    setTermoBusca("");
+  }
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-[#FBF6F3]/90 backdrop-blur-sm border-b border-[#863D3D]/10">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#FBF6F3]/95 backdrop-blur-sm border-b border-[#863D3D]/10">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-2 md:gap-4">
         <a href="/" className="flex items-center gap-2 shrink-0">
           <Image
             src="/logo.png"
@@ -137,15 +270,48 @@ Gostaria de finalizar minha compra.`;
           </ul>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <WhatsAppLink className="hidden lg:inline-block bg-[#863D3D] text-[#FBF6F3] px-5 py-2.5 text-sm font-medium hover:bg-[#5C2A2A] transition-colors">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setOpenBusca((valor) => !valor);
+              setOpenCarrinho(false);
+            }}
+            className="flex items-center justify-center w-10 h-10 rounded-full border border-[#863D3D]/20 text-[#5C2A2A] hover:bg-[#FFC8C8]/30 transition-colors"
+            aria-label={openBusca ? "Fechar busca" : "Buscar produtos"}
+            aria-expanded={openBusca}
+          >
+            {openBusca ? (
+              <span className="text-xl">✕</span>
+            ) : (
+              <svg
+                width="21"
+                height="21"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="10.8" cy="10.8" r="6.8" />
+                <path d="m16 16 4.5 4.5" />
+              </svg>
+            )}
+          </button>
+
+          <WhatsAppLink className="hidden md:inline-block bg-[#863D3D] text-[#FBF6F3] px-5 py-2.5 text-sm font-medium hover:bg-[#5C2A2A] transition-colors">
             Falar no WhatsApp
           </WhatsAppLink>
 
           <button
             type="button"
-            onClick={() => setOpenCarrinho(!openCarrinho)}
-            className="relative bg-[#863D3D] text-white px-4 py-3 rounded-full text-sm font-medium whitespace-nowrap"
+            onClick={() => {
+              setOpenCarrinho(!openCarrinho);
+              setOpenBusca(false);
+            }}
+            className="hidden md:inline-flex relative bg-[#863D3D] text-white px-4 py-3 rounded-full text-sm font-medium whitespace-nowrap"
             aria-expanded={openCarrinho}
             aria-label={`Abrir carrinho com ${totalItens} unidades`}
           >
@@ -209,7 +375,8 @@ Gostaria de finalizar minha compra.`;
                             Quantidade: {item.quantidade}
                           </p>
                           <p className="mt-1 text-sm font-medium text-[#863D3D]">
-                            R$ {(item.preco * item.quantidade)
+                            R${" "}
+                            {(item.preco * item.quantidade)
                               .toFixed(2)
                               .replace(".", ",")}
                           </p>
@@ -252,7 +419,7 @@ Gostaria de finalizar minha compra.`;
 
         <button
           type="button"
-          className="md:hidden text-[#5C2A2A] text-2xl"
+          className="flex md:hidden shrink-0 items-center justify-center w-11 h-11 text-[#5C2A2A] text-2xl"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Fechar menu" : "Abrir menu"}
           aria-expanded={open}
@@ -260,6 +427,134 @@ Gostaria de finalizar minha compra.`;
           {open ? "✕" : "☰"}
         </button>
       </div>
+
+      {openBusca && (
+        <div className="border-t border-[#863D3D]/10 bg-[#FBF6F3] shadow-md">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+            <label
+              htmlFor="busca-produtos"
+              className="block text-sm font-medium text-[#5C2A2A] mb-2"
+            >
+              O que você está procurando?
+            </label>
+
+            <div className="flex items-center gap-3 border border-[#863D3D]/25 rounded-full bg-white px-4 focus-within:ring-2 focus-within:ring-[#863D3D]/30">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="shrink-0 text-[#863D3D]"
+              >
+                <circle cx="10.8" cy="10.8" r="6.8" />
+                <path d="m16 16 4.5 4.5" />
+              </svg>
+
+              <input
+                id="busca-produtos"
+                type="search"
+                value={termoBusca}
+                onChange={(e) => setTermoBusca(e.target.value)}
+                placeholder="Digite o nome ou código do produto..."
+                className="w-full min-w-0 py-3 outline-none bg-transparent text-[#5C2A2A] text-base"
+                autoComplete="off"
+                autoFocus
+              />
+
+              {termoBusca && (
+                <button
+                  type="button"
+                  onClick={() => setTermoBusca("")}
+                  className="shrink-0 text-sm text-[#863D3D] underline"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4 max-h-[55vh] overflow-y-auto">
+              {carregandoBusca ? (
+                <p className="py-4 text-sm text-[#5C2A2A]/70">
+                  Carregando produtos...
+                </p>
+              ) : erroBusca ? (
+                <p role="alert" className="py-4 text-sm text-red-700">
+                  {erroBusca}
+                </p>
+              ) : !termoNormalizado ? (
+                <p className="py-3 text-sm text-[#5C2A2A]/65">
+                  Pesquise pelo nome ou código para encontrar um produto.
+                </p>
+              ) : produtosEncontrados.length === 0 ? (
+                <p className="py-4 text-sm text-[#5C2A2A]/70">
+                  Nenhum produto encontrado para “{termoBusca}”.
+                </p>
+              ) : (
+                <div className="divide-y divide-[#863D3D]/10">
+                  {produtosEncontrados.map((produto) => (
+                    <a
+                      key={produto.id}
+                      href={obterLinkProduto(produto)}
+                      onClick={fecharBusca}
+                      className="flex items-center gap-4 py-3 px-2 rounded-md hover:bg-[#FFC8C8]/20 transition-colors"
+                    >
+                      <div className="w-16 h-16 shrink-0 rounded-md bg-white overflow-hidden flex items-center justify-center">
+                        {produto.imagem ? (
+                          <img
+                            src={produto.imagem}
+                            alt={produto.nome}
+                            loading="lazy"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-xs text-[#5C2A2A]/60">
+                            Sem foto
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-[#5C2A2A]">
+                          {produto.nome}
+                        </p>
+
+                        {produto.codigo && (
+                          <p className="mt-1 text-xs text-[#5C2A2A]/65">
+                            Código: {produto.codigo}
+                          </p>
+                        )}
+
+                        <p className="mt-1 text-sm font-semibold text-[#863D3D]">
+                          {formatarPreco(produto.preco)}
+                        </p>
+                      </div>
+
+                      <span
+                        aria-hidden="true"
+                        className="text-[#863D3D] text-lg shrink-0"
+                      >
+                        →
+                      </span>
+                    </a>
+                  ))}
+
+                  {produtosEncontrados.length === 8 && (
+                    <p className="py-3 text-center text-xs text-[#5C2A2A]/60">
+                      Mostrando até 8 resultados. Refine sua pesquisa para
+                      encontrar outros produtos.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {open && (
         <nav className="md:hidden bg-[#FBF6F3] border-t border-[#863D3D]/10 px-6 py-4 max-h-[75vh] overflow-y-auto">
@@ -275,6 +570,7 @@ Gostaria de finalizar minha compra.`;
                 <a href="/feminino" onClick={() => setOpen(false)}>
                   Feminino
                 </a>
+
                 <button
                   type="button"
                   onClick={() => setOpenFeminino(!openFeminino)}
@@ -307,6 +603,7 @@ Gostaria de finalizar minha compra.`;
                 <a href="/masculino" onClick={() => setOpen(false)}>
                   Masculino
                 </a>
+
                 <button
                   type="button"
                   onClick={() => setOpenMasculino(!openMasculino)}
@@ -346,6 +643,7 @@ Gostaria de finalizar minha compra.`;
                 onClick={() => {
                   setOpen(false);
                   setOpenCarrinho(true);
+                  setOpenBusca(false);
                 }}
                 className="bg-[#863D3D] text-white px-5 py-3 rounded-full"
               >

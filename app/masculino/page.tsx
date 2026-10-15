@@ -10,7 +10,7 @@ export default function Masculino() {
   ];
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pt-32 pb-20">
+    <main className="max-w-6xl mx-auto px-6 pt-20 pb-20">
       <div className="text-center mb-14">
         <p className="text-sm uppercase tracking-widest text-[#863D3D] mb-3">
           By Chicuti

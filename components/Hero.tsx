@@ -2,7 +2,7 @@ import Carousel from "./Carousel";
 import WhatsAppLink from "./WhatsAppLink";
 export default function Hero() {
   return (
-    <section className="pt-40 pb-20 px-6 max-w-6xl mx-auto grid md:grid-cols-[1.2fr_0.8fr] gap-12 items-end">
+    <section className="pt-18 pb-20 px-6 max-w-6xl mx-auto grid md:grid-cols-[1.2fr_0.8fr] gap-12 items-end">
       <div>
         <p className="text-[#863D3D] text-sm font-medium mb-4">
           Loja de moda íntima em Douradina

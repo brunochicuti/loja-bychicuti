@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useCarrinho } from "@/contexto/carrinhoContexto";
 
@@ -46,6 +46,10 @@ export default function PaginaProdutoMasculino() {
   const [erro, setErro] = useState("");
   const [adicionado, setAdicionado] = useState(false);
 
+  const imagemRef = useRef<HTMLDivElement>(null);
+  const [zoomAtivo, setZoomAtivo] = useState(false);
+  const [posicaoZoom, setPosicaoZoom] = useState({ x: 50, y: 50 });
+
   useEffect(() => {
     let ativo = true;
 
@@ -56,6 +60,8 @@ export default function PaginaProdutoMasculino() {
       setCorSelecionada("");
       setTamanhoSelecionado("");
       setAdicionado(false);
+      setZoomAtivo(false);
+      setPosicaoZoom({ x: 50, y: 50 });
 
       try {
         const resposta = await fetch(
@@ -116,8 +122,6 @@ export default function PaginaProdutoMasculino() {
 
   const { produto, cores, variacoes } = catalogo;
 
-  // Mostra apenas variações que a API retornou com estoque positivo.
-  // A API pública também deve filtrar as variações inativas no banco.
   const variacoesDisponiveis = variacoes.filter(
     (v) => Number(v.quantidade) > 0
   );
@@ -152,9 +156,7 @@ export default function PaginaProdutoMasculino() {
 
   const emEstoque = (cor: string, tamanho: string) =>
     variacoesDisponiveis.some(
-      (v) =>
-        v.cor === cor &&
-        v.tamanho === tamanho
+      (v) => v.cor === cor && v.tamanho === tamanho
     );
 
   const imagemAtual =
@@ -205,9 +207,47 @@ export default function PaginaProdutoMasculino() {
       </a>
 
       <section className="produto-detalhes">
-        <div className="produto-imagem">
+        <div
+          ref={imagemRef}
+          className={`produto-imagem ${zoomAtivo ? "zoom-ativo" : ""}`}
+          onMouseMove={(e) => {
+            if (!zoomAtivo || !imagemRef.current) return;
+
+            const rect = imagemRef.current.getBoundingClientRect();
+
+            setPosicaoZoom({
+              x: Math.max(
+                0,
+                Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+              ),
+              y: Math.max(
+                0,
+                Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
+              ),
+            });
+          }}
+        >
           {imagemAtual ? (
-            <img src={imagemAtual} alt={produto.nome} />
+            <button
+              type="button"
+              className="produto-zoom-botao"
+              onClick={() => setZoomAtivo((ativo) => !ativo)}
+              aria-label={
+                zoomAtivo
+                  ? "Voltar ao tamanho normal"
+                  : "Ampliar imagem"
+              }
+              aria-pressed={zoomAtivo}
+            >
+              <img
+                src={imagemAtual}
+                alt={produto.nome}
+                style={{
+                  transform: zoomAtivo ? "scale(2.5)" : "scale(1)",
+                  transformOrigin: `${posicaoZoom.x}% ${posicaoZoom.y}%`,
+                }}
+              />
+            </button>
           ) : (
             <p>Imagem não cadastrada</p>
           )}
@@ -252,6 +292,8 @@ export default function PaginaProdutoMasculino() {
                   setCorSelecionada(cor.cor);
                   setTamanhoSelecionado("");
                   setAdicionado(false);
+                  setZoomAtivo(false);
+                  setPosicaoZoom({ x: 50, y: 50 });
                 }}
               >
                 {cor.cor}
@@ -371,11 +413,27 @@ export default function PaginaProdutoMasculino() {
           overflow: hidden;
         }
 
-        .produto-imagem img {
+        .produto-zoom-botao {
+          display: block;
+          position: relative;
+          width: 100%;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          overflow: hidden;
+          cursor: zoom-in;
+        }
+
+        .produto-zoom-botao img {
           display: block;
           width: 100%;
           height: auto;
           object-fit: contain;
+          transition: transform 0.25s ease;
+        }
+
+        .produto-imagem.zoom-ativo .produto-zoom-botao {
+          cursor: zoom-out;
         }
 
         .produto-categoria {

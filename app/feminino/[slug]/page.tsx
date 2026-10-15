@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useCarrinho } from "@/contexto/carrinhoContexto";
-
 type Produto = {
   id: number | string;
   codigo: string | null;
@@ -45,6 +44,10 @@ export default function PaginaProduto() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [adicionado, setAdicionado] = useState(false);
+
+  const imagemRef = useRef<HTMLDivElement>(null);
+  const [posicaoLupa, setPosicaoLupa] = useState({ x: 50, y: 50 });
+  const [zoomAtivo, setZoomAtivo] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -230,9 +233,37 @@ export default function PaginaProduto() {
       </a>
 
       <section className="produto-detalhes">
-        <div className="produto-imagem">
+        <div
+          ref={imagemRef}
+          className={`produto-imagem ${zoomAtivo ? "zoom-ativo" : ""}`}
+          onMouseMove={(e) => {
+            if (!zoomAtivo || !imagemRef.current) return;
+
+            const rect = imagemRef.current.getBoundingClientRect();
+
+            setPosicaoLupa({
+              x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
+              y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
+            });
+          }}
+        >
           {imagemAtual ? (
-            <img src={imagemAtual} alt={produto.nome} />
+            <button
+              type="button"
+              className="produto-zoom-botao"
+              onClick={() => setZoomAtivo((ativo) => !ativo)}
+              aria-label={zoomAtivo ? "Voltar ao tamanho normal" : "Ampliar imagem"}
+              aria-pressed={zoomAtivo}
+            >
+              <img
+                src={imagemAtual}
+                alt={produto.nome}
+                style={{
+                  transform: zoomAtivo ? "scale(2.5)" : "scale(1)",
+                  transformOrigin: `${posicaoLupa.x}% ${posicaoLupa.y}%`,
+                }}
+              />
+            </button>
           ) : (
             <p>Imagem não cadastrada</p>
           )}
@@ -399,8 +430,94 @@ export default function PaginaProduto() {
           background: #fbf6f3;
           border-radius: 12px;
           overflow: hidden;
+          position: relative;
         }
 
+        .produto-zoom-botao {
+          display: block;
+          position: relative;
+          width: 100%;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          overflow: hidden;
+          cursor: zoom-in;
+        }
+
+        .produto-zoom-botao img {
+          display: block;
+          width: 100%;
+          height: auto;
+          transition: transform 0.25s ease;
+        }
+
+        .produto-imagem.zoom-ativo .produto-zoom-botao {
+          cursor: zoom-out;
+        }
+          
+        .produto-lupa {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-repeat: no-repeat;
+        background-size: 250% 250%;
+        border: 2px solid #863d3d;
+        border-radius: 12px;
+        }
+        .produto-ampliado img {
+        max-width: 100%;
+        max-height: 80%;
+        object-fit: contain;
+        border-radius: 8px;
+      }
+
+      .produto-ampliado p {
+        color: white;
+        font-size: 14px;
+        margin-top: 14px;
+      }
+
+      .produto-fechar-ampliado {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 44px;
+        height: 44px;
+        border: 0;
+        border-radius: 50%;
+        background: #fbf6f3;
+        color: #5c2a2a;
+        font-size: 22px;
+        cursor: pointer;
+      }
+
+      @media (hover: none), (max-width: 700px) {
+        .produto-imagem {
+          cursor: zoom-in;
+        }
+
+        .produto-lupa {
+          display: none;
+        }
+      }
+        .produto-ampliado {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          background: rgba(30, 15, 15, 0.92);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 20px;
+          cursor: zoom-out;
+        }
+        .produto-ampliado img {
+          max-width: 100%;
+          max-height: 80%;
+          object-fit: contain;
+          border-radius: 8px;
+        }
         .produto-imagem img {
           display: block;
           width: 100%;
