@@ -37,7 +37,7 @@ export default function PaginaProdutoMasculino() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
 
-  const { adicionarAoCarrinho, totalItens } = useCarrinho();
+  const { adicionarAoCarrinho, totalItens, carrinho } = useCarrinho();
 
   const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
   const [corSelecionada, setCorSelecionada] = useState("");
@@ -49,6 +49,8 @@ export default function PaginaProdutoMasculino() {
   const imagemRef = useRef<HTMLDivElement>(null);
   const [zoomAtivo, setZoomAtivo] = useState(false);
   const [posicaoZoom, setPosicaoZoom] = useState({ x: 50, y: 50 });
+
+  const [quantidade, setQuantidade] = useState(1);
 
   useEffect(() => {
     let ativo = true;
@@ -154,6 +156,24 @@ export default function PaginaProdutoMasculino() {
       v.tamanho === tamanhoSelecionado
   );
 
+    const idNumerico = Number(produto.id);
+
+    const quantidadeNoCarrinho = carrinho
+      .filter(
+        (item) =>
+          Number(item.id) === idNumerico &&
+          item.cor === corSelecionada &&
+          item.tamanho === tamanhoSelecionado
+      )
+      .reduce((total, item) => total + item.quantidade, 0);
+
+    const estoqueRestante = Math.max(
+      0,
+      Number(variacaoSelecionada?.quantidade ?? 0) -
+        quantidadeNoCarrinho
+    );
+
+
   const emEstoque = (cor: string, tamanho: string) =>
     variacoesDisponiveis.some(
       (v) => v.cor === cor && v.tamanho === tamanho
@@ -165,9 +185,22 @@ export default function PaginaProdutoMasculino() {
 
   const preco = Number(produto.preco);
 
+  const total = (preco * quantidade).toLocaleString("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  });
+
   const mensagem = encodeURIComponent(
-    `Olá! Tenho interesse no produto ${produto.nome}, código ${produto.codigo || "não informado"}, cor ${corSelecionada}, tamanho ${tamanhoSelecionado}.`
-  );
+    [
+    `Olá! Tenho interesse no produto ${produto.nome}, 
+    código ${produto.codigo || "não informado"}, 
+    cor ${corSelecionada}, 
+    tamanho ${tamanhoSelecionado}, 
+    Quantidade: ${quantidade}. 
+    
+    TOTAL: ${total}.`
+  ].join("\n")
+);
 
   function adicionarProduto() {
     const idNumerico = Number(produto.id);
@@ -179,7 +212,9 @@ export default function PaginaProdutoMasculino() {
       !corSelecionada ||
       !tamanhoSelecionado ||
       !variacaoSelecionada ||
-      variacaoSelecionada.quantidade <= 0
+      variacaoSelecionada.quantidade <= 0 ||
+      quantidade <= 0 ||
+      quantidade > estoqueRestante
     ) {
       return;
     }
@@ -191,7 +226,7 @@ export default function PaginaProdutoMasculino() {
       imagem: imagemAtual,
       cor: corSelecionada,
       tamanho: tamanhoSelecionado,
-      quantidade: 1,
+      quantidade: quantidade,
     });
 
     setAdicionado(true);
@@ -294,6 +329,7 @@ export default function PaginaProdutoMasculino() {
                   setAdicionado(false);
                   setZoomAtivo(false);
                   setPosicaoZoom({ x: 50, y: 50 });
+                  setQuantidade(1);
                 }}
               >
                 {cor.cor}
@@ -330,6 +366,7 @@ export default function PaginaProdutoMasculino() {
                   onClick={() => {
                     setTamanhoSelecionado(tamanho);
                     setAdicionado(false);
+                    setQuantidade(1);
                   }}
                 >
                   {tamanho}
@@ -337,6 +374,43 @@ export default function PaginaProdutoMasculino() {
               );
             })}
           </div>
+
+                <h2>Quantidade</h2>
+
+              <div className="flex items-center gap-4 mt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuantidade((atual) => Math.max(1, atual - 1))
+                    
+                  }
+                  disabled={quantidade <= 1}
+                  className="w-11 h-11 rounded-lg border border-[#D7B8B8] disabled:opacity-40"
+                  aria-label="Diminuir quantidade"
+                >
+                  −
+                </button>
+
+                <span className="w-8 text-center font-semibold" aria-live="polite">
+                  {quantidade}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuantidade((atual) =>
+                      Math.min(estoqueRestante, atual + 1)
+                    )
+                  }
+                  disabled={
+                    !variacaoSelecionada || quantidade >= estoqueRestante
+                  }
+                  className="w-11 h-11 rounded-lg border border-[#D7B8B8] disabled:opacity-40"
+                  aria-label="Aumentar quantidade"
+                >
+                  +
+                </button>
+              </div>
 
           {variacaoSelecionada &&
             variacaoSelecionada.quantidade > 0 && (
