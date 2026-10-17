@@ -136,13 +136,20 @@ export default function CalcinhasPage() {
         return true;
 
       case "Básico":
-        return pertenceAoBasico(nome);
+          return (
+          !pertenceAoFio(nome) &&
+          !pertenceAoRendado(nome) &&
+          pertenceAoBasico(nome)
+          );
 
       case "Fio":
         return pertenceAoFio(nome);
 
       case "Rendado":
-        return !pertenceAoFio(nome) && pertenceAoRendado(nome);
+          return (
+          !pertenceAoFio(nome) &&
+           pertenceAoRendado(nome)
+          );
 
       default:
         return true;

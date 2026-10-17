@@ -7,6 +7,7 @@ type Contexto = {
 };
 
 const TAMANHOS_PERMITIDOS = [
+  "P", "M", "G", "GG",
   "2", "4", "6", "8", "10", "12", "14", "16",
   "40", "42", "44", "46", "48", "50", "52",
   "Único",
@@ -65,12 +66,12 @@ export async function GET(
         [produto.id]
       ),
       db.query(
-        `SELECT tamanho, cor, quantidade
-         FROM public.variacoes_estoque
-         WHERE produto_id = $1
-           AND ativo = TRUE
-           AND tamanho = ANY($2::text[])
-         ORDER BY cor, tamanho`,
+        `SELECT id, tamanho, cor, quantidade
+        FROM public.variacoes_estoque
+        WHERE produto_id = $1
+        AND ativo = TRUE
+        AND tamanho = ANY($2::text[])
+        ORDER BY cor, tamanho`,
         [produto.id, TAMANHOS_PERMITIDOS]
       ),
     ]);

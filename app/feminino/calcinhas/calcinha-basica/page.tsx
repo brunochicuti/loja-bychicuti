@@ -2,7 +2,7 @@
 
 import WhatsAppLink from "@/components/WhatsAppLink";
 import { useCarrinho } from "@/contexto/carrinhoContexto";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ProdutoPage() {
 const [tamanho, setTamanho] = useState("");
@@ -11,9 +11,62 @@ const [quantidade, setQuantidade] = useState(1);
 const { adicionarAoCarrinho } = useCarrinho();
 const [erroCarrinho, setErroCarrinho] = useState("");
 
+const [carregando, setCarregando] = useState(true);
+
 
 
 const mensagem = `Olá! Tenho interesse na Calcinha Básica Lisa. Tamanho: ${tamanho || "não informado"} | Cor: ${cor || "não informada"}`;
+
+const [produto, setProduto] = useState<{
+  id: string;
+  nome: string;
+  preco: string;
+  imagem: string | null;
+} | null>(null);
+
+const [variacoes, setVariacoes] = useState<
+  {
+    id: string;
+    tamanho: string;
+    cor: string;
+    quantidade: number;
+  }[]
+>([]);
+
+const [cores, setCores] = useState<
+  {
+    cor: string;
+    imagem: string | null;
+  }[]
+>([]);
+
+useEffect(() => {
+  async function carregarProduto() {
+    try {
+      const resposta = await fetch(
+        "/api/catalogo/calcinha-basica-lisa",
+        { cache: "no-store" }
+      );
+
+      if (!resposta.ok) {
+        throw new Error("Não foi possível carregar o produto.");
+      }
+
+      const dados = await resposta.json();
+
+      setProduto(dados.produto);
+      setVariacoes(dados.variacoes);
+      setCores(dados.cores);
+    } catch (erro) {
+      console.error("Erro ao carregar a Calcinha Básica:", erro);
+      setErroCarrinho("Não foi possível carregar o produto. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  carregarProduto();
+}, []);
 
   return (
 <main className="min-h-screen bg-[#FBF6F3] pb-20">
@@ -29,7 +82,12 @@ const mensagem = `Olá! Tenho interesse na Calcinha Básica Lisa. Tamanho: ${tam
 
             <div className="mt-8">
                 <p className="text-2xl font-medium text-[#863D3D]">
-                    R$ 19,90
+                {produto
+                    ? Number(produto.preco).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                    })
+                    : "Carregando preço..."}
                 </p>
 
                 <p className="mt-4 text-[#5C2A2A]/70 max-w-xl">
@@ -42,46 +100,33 @@ const mensagem = `Olá! Tenho interesse na Calcinha Básica Lisa. Tamanho: ${tam
                         Tamanho
                     </h2>
 
-                    <div className="flex gap-3">
-                        <button
-                        onClick={() => setTamanho("P")}
-                        className={`w-12 h-12 rounded-sm ${
-                            tamanho === "P"
-                            ? "bg-[#863D3D] text-white"
-                            : "border border-[#863D3D]/30"}`}
-                        >
-                        P
-                        </button>
+                    <div className="flex gap-3 flex-wrap">
+                    {[...new Set(variacoes.map((item) => item.tamanho))].map(
+                        (itemTamanho) => {
+                        const disponivel = variacoes.some(
+                            (item) =>
+                            item.tamanho === itemTamanho &&
+                            item.quantidade > 0 &&
+                            (!cor || item.cor === cor)
+                        );
 
-                        <button
-                        onClick={() => setTamanho("M")}
-                        className={`w-12 h-12 rounded-sm ${
-                            tamanho === "M"
-                            ? "bg-[#863D3D] text-white"
-                            : "border border-[#863D3D]/30"}`}
-                        >
-                        M
-                        </button>
-
-                        <button
-                        onClick={() => setTamanho("G")}
-                        className={`w-12 h-12 rounded-sm ${
-                            tamanho === "G"
-                            ? "bg-[#863D3D] text-white"
-                            : "border border-[#863D3D]/30"}`}
-                        >
-                        G
-                        </button>
-
-                        <button
-                        onClick={() => setTamanho("GG")}
-                        className={`w-12 h-12 rounded-sm ${
-                            tamanho === "GG"
-                            ? "bg-[#863D3D] text-white"
-                            : "border border-[#863D3D]/30"}`}
-                        >
-                        GG
-                        </button>
+                        return (
+                            <button
+                            key={itemTamanho}
+                            type="button"
+                            disabled={!disponivel}
+                            onClick={() => setTamanho(itemTamanho)}
+                            className={`w-12 h-12 rounded-sm ${
+                                tamanho === itemTamanho
+                                ? "bg-[#863D3D] text-white"
+                                : "border border-[#863D3D]/30"
+                            } ${!disponivel ? "opacity-40 cursor-not-allowed" : ""}`}
+                            >
+                            {itemTamanho}
+                            </button>
+                        );
+                        }
+                    )}
                     </div>
                 </div>
 
@@ -116,36 +161,23 @@ const mensagem = `Olá! Tenho interesse na Calcinha Básica Lisa. Tamanho: ${tam
                                 Cor
                             </h2>
 
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 flex-wrap">
+                            {cores.map((item) => (
                                 <button
-                                onClick={() => setCor("PRETO")}
-                                aria-label="Preto"
-                                className={`w-9 h-9 rounded-full bg-black ${
-                                    cor === "PRETO"
-                                    ? "ring-2 ring-[#863D3D] ring-offset-2"
-                                    : "border border-gray-300"
+                                key={item.cor}
+                                type="button"
+                                onClick={() => setCor(item.cor)}
+                                title={item.cor}
+                                aria-label={item.cor}
+                                className={`px-3 py-2 rounded-sm border ${
+                                    cor === item.cor
+                                    ? "bg-[#863D3D] text-white border-[#863D3D]"
+                                    : "border-[#863D3D]/30 text-[#5C2A2A]"
                                 }`}
-                                />
-
-                                <button
-                                onClick={() => setCor("BRANCO")}
-                                aria-label="Branco"
-                                className={`w-9 h-9 rounded-full bg-white ${
-                                    cor === "BRANCO"
-                                    ? "ring-2 ring-[#863D3D] ring-offset-2"
-                                    : "border border-gray-300"
-                                }`}
-                                />
-
-                                <button
-                                onClick={() => setCor("NUDE")}
-                                aria-label="Nude"
-                                className={`w-9 h-9 rounded-full bg-[#D8B08C] ${
-                                    cor === "NUDE"
-                                    ? "ring-2 ring-[#863D3D] ring-offset-2"
-                                    : "border border-gray-300"
-                                }`}
-                                />
+                                >
+                                {item.cor}
+                                </button>
+                            ))}
                             </div>
 
                             <div className="mt-3 h-6">
@@ -169,14 +201,31 @@ const mensagem = `Olá! Tenho interesse na Calcinha Básica Lisa. Tamanho: ${tam
 
                                 setErroCarrinho("");
 
+                                const variacaoSelecionada = variacoes.find(
+                                (item) =>
+                                    item.tamanho === tamanho &&
+                                    item.cor === cor
+                                );
+
+                                if (!produto || !variacaoSelecionada) {
+                                setErroCarrinho("Selecione uma combinação válida de cor e tamanho.");
+                                return;
+                                }
+
+                                if (quantidade < 1 || quantidade > variacaoSelecionada.quantidade) {
+                                setErroCarrinho("A quantidade selecionada não está disponível em estoque.");
+                                return;
+                                }
+
                             adicionarAoCarrinho({
-                            id: 1001,
-                            nome: "Calcinha Básica Lisa",
-                            preco: 19.9,
-                            imagem: "/produtos/calcinha-basica.jpeg",
-                            tamanho: tamanho,
-                            cor: cor,
-                            quantidade: quantidade,
+                            id: Number(produto.id),
+                            variacaoId: Number(variacaoSelecionada.id),
+                            nome: produto.nome,
+                            preco: Number(produto.preco),
+                            imagem: produto.imagem,
+                            tamanho,
+                            cor,
+                            quantidade,
                             });
                             }}
                             >

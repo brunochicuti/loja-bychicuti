@@ -20,6 +20,7 @@ type Cor = {
 };
 
 type Variacao = {
+  id: number | string;
   tamanho: string;
   cor: string;
   quantidade: number;
@@ -197,7 +198,7 @@ export default function PaginaProdutoMasculino() {
     cor ${corSelecionada}, 
     tamanho ${tamanhoSelecionado}, 
     Quantidade: ${quantidade}. 
-    
+
     TOTAL: ${total}.`
   ].join("\n")
 );
@@ -221,12 +222,13 @@ export default function PaginaProdutoMasculino() {
 
     adicionarAoCarrinho({
       id: idNumerico,
+      variacaoId: variacaoSelecionada.id,
       nome: produto.nome,
       preco,
       imagem: imagemAtual,
       cor: corSelecionada,
       tamanho: tamanhoSelecionado,
-      quantidade: quantidade,
+      quantidade,
     });
 
     setAdicionado(true);

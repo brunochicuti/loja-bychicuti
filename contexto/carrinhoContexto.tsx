@@ -11,6 +11,7 @@ import {
 
 export type ItemCarrinho = {
   id: number;
+  variacaoId: number | string;
   nome: string;
   preco: number;
   imagem: string | null;
@@ -90,15 +91,17 @@ export function CarrinhoProvider({
   function adicionarAoCarrinho(item: ItemCarrinho) {
     console.log("Produto recebido pelo carrinho:", item);
 
-    if (
-      !Number.isInteger(item.id) ||
-      !Number.isFinite(item.preco) ||
-      item.preco < 0 ||
-      !Number.isInteger(item.quantidade) ||
-      item.quantidade < 1 ||
-      !item.cor?.trim() ||
-      !item.tamanho?.trim()
-    ) {
+      if (
+        !Number.isInteger(item.id) ||
+        !Number.isInteger(Number(item.variacaoId)) ||
+        Number(item.variacaoId) <= 0 ||
+        !Number.isFinite(item.preco) ||
+        item.preco < 0 ||
+        !Number.isInteger(item.quantidade) ||
+        item.quantidade < 1 ||
+        !item.cor?.trim() ||
+        !item.tamanho?.trim()
+      ) {
       console.log(
         "Dados inválidos para adicionar ao carrinho:",
         item
@@ -107,25 +110,26 @@ export function CarrinhoProvider({
     }
 
     setCarrinho((atual) => {
-      const existente = atual.find(
+        const existente = atual.find(
         (produto) =>
-          produto.id === item.id &&
-          produto.cor === item.cor &&
-          produto.tamanho === item.tamanho
+        produto.id === item.id &&
+        String(produto.variacaoId) === String(item.variacaoId) &&
+        produto.cor === item.cor &&
+        produto.tamanho === item.tamanho
       );
-
       if (existente) {
         return atual.map((produto) =>
-          produto.id === item.id &&
-          produto.cor === item.cor &&
-          produto.tamanho === item.tamanho
-            ? {
-                ...produto,
-                quantidade:
-                  produto.quantidade + item.quantidade,
-              }
-            : produto
-        );
+        produto.id === item.id &&
+        String(produto.variacaoId) === String(item.variacaoId) &&
+        produto.cor === item.cor &&
+        produto.tamanho === item.tamanho
+          ? {
+              ...produto,
+              quantidade:
+                produto.quantidade + item.quantidade,
+            }
+          : produto
+      );
       }
 
       return [...atual, item];

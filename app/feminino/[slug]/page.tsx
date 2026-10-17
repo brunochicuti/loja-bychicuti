@@ -19,6 +19,7 @@ type Cor = {
 };
 
 type Variacao = {
+  id: number | string;
   tamanho: string;
   cor: string;
   quantidade: number;
@@ -121,44 +122,33 @@ export default function PaginaProduto() {
 
   const { produto, cores, variacoes } = catalogo;
 
-  const coresDisponiveis = cores.filter((cor) =>
-    variacoes.some(
-      (v) => v.cor === cor.cor && v.quantidade > 0
-    )
-  );
+    const coresPermitidas = [
+      "Azul Marinho",
+      "Cappuccino",
+      "Nude",
+      "Satin",
+      "Sensuale",
+      "Verde Garden",
+      "Vermelha",
+    ];
+
+    const coresDisponiveis = cores.filter(
+      (cor) =>
+        coresPermitidas.includes(cor.cor) &&
+        variacoes.some(
+          (v) => v.cor === cor.cor && v.quantidade > 0
+        )
+    );
 
   // Tamanhos únicos, organizados numericamente em ordem crescente.
   // Os tamanhos antigos continuam sendo exibidos caso estejam cadastrados.
   const tamanhosDisponiveis = [
-    ...new Set(variacoes.map((v) => v.tamanho)),
-  ].sort((a, b) => {
-    const tamanhoA = a.trim().toUpperCase();
-    const tamanhoB = b.trim().toUpperCase();
-
-    const ordemAntiga = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
-
-    const indiceA = ordemAntiga.indexOf(tamanhoA);
-    const indiceB = ordemAntiga.indexOf(tamanhoB);
-
-    const numericoA = /^\d+$/.test(tamanhoA);
-    const numericoB = /^\d+$/.test(tamanhoB);
-
-    if (numericoA && numericoB) {
-      return Number(tamanhoA) - Number(tamanhoB);
-    }
-
-    if (indiceA !== -1 && indiceB !== -1) {
-      return indiceA - indiceB;
-    }
-
-    if (numericoA) return -1;
-    if (numericoB) return 1;
-
-    if (indiceA !== -1) return -1;
-    if (indiceB !== -1) return 1;
-
-    return tamanhoA.localeCompare(tamanhoB, "pt-BR");
-  });
+    ...new Set(
+      variacoes
+        .map((v) => v.tamanho.trim())
+        .filter((tamanho) => /^\d+$/.test(tamanho))
+    ),
+  ].sort((a, b) => Number(a) - Number(b));
 
   const variacaoSelecionada = variacoes.find(
     (v) =>
@@ -242,12 +232,13 @@ export default function PaginaProduto() {
 
     adicionarAoCarrinho({
       id: idNumerico,
+      variacaoId: variacaoSelecionada.id,
       nome: produto.nome,
       preco,
       imagem: imagemAtual,
       cor: corSelecionada,
       tamanho: tamanhoSelecionado,
-      quantidade: quantidade,
+      quantidade,
     });
 
     setAdicionado(true);
