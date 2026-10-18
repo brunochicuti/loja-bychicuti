@@ -46,6 +46,20 @@ type Venda = {
   data: string | null;
 };
 
+type PedidoEmAnalise = {
+  id: number | string;
+  codigo: string;
+  cliente_nome: string | null;
+  cliente_telefone: string | null;
+  valor_total: number | string;
+  status: string;
+  order_nsu: string;
+  transaction_nsu: string | null;
+  observacao_interna: string | null;
+  criado_em: string;
+  atualizado_em: string;
+};
+
 const categorias = [
   "Calcinhas",
   "Sutiãs",
@@ -122,6 +136,9 @@ export default function AdminPage() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [carregandoVendas, setCarregandoVendas] = useState(false);
   const [mensagemHistorico, setMensagemHistorico] = useState("");
+
+  const [pedidosEmAnalise, setPedidosEmAnalise] =
+  useState<PedidoEmAnalise[]>([]);
 
   const [imagemPrincipalCor, setImagemPrincipalCor] = useState("");
   const [imagensAdicionaisCor, setImagensAdicionaisCor] = useState<string[]>([]);
@@ -280,6 +297,7 @@ export default function AdminPage() {
       }
 
       setVendas(dados.vendas || []);
+      setPedidosEmAnalise(dados.pedidosEmAnalise || []);
     } catch (erro) {
       setMensagemHistorico(
         erro instanceof Error
@@ -1206,6 +1224,106 @@ function buscarEstoquePorCodigo(e: React.FormEvent<HTMLFormElement>) {
                 </p>
               )}
             </section>
+
+                <section
+                id="pedidos-analise"
+                className="mt-8 rounded border border-amber-300 bg-amber-50 p-6"
+              >
+                <div className="mb-5">
+                  <h2 className="text-xl font-bold text-amber-950">
+                    Pedidos para análise manual
+                  </h2>
+                  <p className="mt-1 text-sm text-amber-900">
+                  Pedidos que precisam de verificação do pagamento, do estoque
+                  ou da criação do checkout antes de separar ou entregar os produtos.
+                </p>
+                </div>
+
+                <p className="mb-4 text-sm font-semibold text-amber-950">
+                  {pedidosEmAnalise.length}{" "}
+                  {pedidosEmAnalise.length === 1
+                    ? "pedido aguardando análise"
+                    : "pedidos aguardando análise"}
+                </p>
+
+                {pedidosEmAnalise.length === 0 ? (
+                  <p className="rounded bg-white p-4 text-sm text-gray-600">
+                    Nenhum pedido precisa de análise manual no momento.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {pedidosEmAnalise.map((pedido) => (
+                      <article
+                        key={pedido.id}
+                        className="rounded border border-amber-200 bg-white p-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h3 className="font-bold text-[#5C2A2A]">
+                              Pedido {pedido.codigo}
+                            </h3>
+                            <p className="text-sm text-gray-700">
+                              Cliente: {pedido.cliente_nome || "Não informado"}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              Telefone: {pedido.cliente_telefone || "Não informado"}
+                            </p>
+                          </div>
+
+                        <span className="w-fit rounded bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">
+                          {pedido.transaction_nsu
+                            ? "Pagamento identificado · Análise manual"
+                            : pedido.status === "PENDENTE"
+                              ? "Pagamento não identificado · Verificar checkout"
+                              : "Verificar pagamento e pedido"}
+                        </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                          <div>
+                            <p className="text-gray-500">Valor do pedido</p>
+                            <p className="font-semibold">
+                              {Number(pedido.valor_total).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-gray-500">Código da transação</p>
+                            <p className="break-all font-medium">
+                              {pedido.transaction_nsu || "Não informado"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-gray-500">NSU do pedido</p>
+                            <p className="break-all font-medium">
+                              {pedido.order_nsu}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-gray-500">Última atualização</p>
+                            <p>{formatarData(pedido.atualizado_em)}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded bg-amber-50 p-3">
+                          <p className="text-sm font-bold text-amber-950">
+                            Motivo da análise
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-amber-900">
+                            {pedido.observacao_interna || "Motivo não informado."}
+                          </p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
 
             <section
               id="historico-vendas"

@@ -9,7 +9,7 @@ const SITE_URL =
   process.env.SITE_URL || "https://bychicuti.vercel.app";
 
 const INFINITEPAY_HANDLE =
-  process.env.INFINITEPAY_HANDLE || "ByChicuti";
+  process.env.INFINITEPAY_HANDLE || "bychicuti";
 
 type ItemRecebido = {
   variacaoId: number;
@@ -356,7 +356,6 @@ try {
 
 console.log("Status da resposta InfinitePay:", resposta.status);
 console.log("Link recebido:", Boolean(dados?.url));
-console.log("Resposta da InfinitePay:", textoResposta);
 
 const checkoutUrl =
   typeof dados?.url === "string" ? dados.url : "";
@@ -368,48 +367,71 @@ const checkoutUrl =
 
       urlValida =
         url.protocol === "https:" &&
-        url.hostname === "checkout.infinitepay.io"
+        [
+          "checkout.infinitepay.com.br",
+          "checkout.infinitepay.io",
+        ].includes(url.hostname);
     } catch {
       urlValida = false;
     }
 
     if (!resposta.ok || !urlValida) {
-      throw new Error("A InfinitePay não retornou um link válido.");
+    throw new Error(
+    `A InfinitePay não retornou um link válido (status ${resposta.status}, mensagem: ${String(dados?.message ?? dados?.error ?? "sem mensagem").slice(0, 200)}).`
+      );
     }
 
-    await db.query(
+     const resultadoAtualizacao = await db.query(
       `
         UPDATE pedidos
         SET link_pagamento = $1,
             atualizado_em = NOW()
         WHERE order_nsu = $2
           AND status = 'PENDENTE'
+          AND requer_analise_manual = FALSE
       `,
       [checkoutUrl, orderNsu]
     );
+
+    if (resultadoAtualizacao.rowCount !== 1) {
+      throw new Error(
+        "O pedido não está disponível para receber um link de pagamento."
+      );
+    }
 
     return NextResponse.json({
       codigo: codigoPedido,
       checkoutUrl,
     });
-  } catch (erro) {
+
+   } catch (erro) {
     console.error("Erro ao gerar checkout:", erro);
 
-    await db.query(
+     await db.query(
       `
         UPDATE pedidos
-        SET status = 'ERRO',
+        SET requer_analise_manual = TRUE,
+            observacao_interna = $1,
             atualizado_em = NOW()
-        WHERE order_nsu = $1
+        WHERE order_nsu = $2
           AND status = 'PENDENTE'
+          AND requer_analise_manual = FALSE
       `,
-      [orderNsu]
-    ).catch(() => undefined);
+      [
+        `Falha ao criar o checkout na InfinitePay: ${erro instanceof Error ? erro.message : "erro desconhecido"}. Verificar se o link foi criado antes de tentar novamente.`,
+        orderNsu,
+      ]
+    ).catch((erroAtualizacao) => {
+      console.error(
+        "Não foi possível encaminhar o pedido para análise manual:",
+        erroAtualizacao
+      );
+    });
 
     return NextResponse.json(
       {
         erro:
-          "O pedido foi registrado, mas não foi possível gerar o pagamento. Tente novamente mais tarde.",
+          "Não foi possível confirmar a criação do pagamento. O pedido será verificado antes de uma nova tentativa.",
       },
       { status: 502 }
     );

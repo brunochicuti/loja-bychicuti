@@ -21,6 +21,8 @@ export async function GET(request: Request) {
     const resultado = await db.query(
       `SELECT
          m.id,
+         m.pedido_id,
+         m.item_pedido_id,
          m.variacao_id,
          m.quantidade,
          m.observacao,
@@ -44,7 +46,32 @@ export async function GET(request: Request) {
       data: venda.data || venda.data_alternativa || null,
     }));
 
-    return NextResponse.json({ vendas });
+    const resultadoAnalise = await db.query(
+      `
+        SELECT
+          id,
+          codigo,
+          cliente_nome,
+          cliente_telefone,
+          valor_total,
+          status,
+          order_nsu,
+          transaction_nsu,
+          observacao_interna,
+          criado_em,
+          atualizado_em
+        FROM pedidos
+        WHERE requer_analise_manual = TRUE
+        ORDER BY atualizado_em DESC
+        LIMIT $1
+      `,
+      [limite]
+    );
+
+    return NextResponse.json({
+      vendas,
+      pedidosEmAnalise: resultadoAnalise.rows,
+    });
   } catch (error) {
     console.error("Erro ao consultar histórico de vendas:", error);
     return respostaErro(
