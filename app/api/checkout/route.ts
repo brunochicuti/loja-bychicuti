@@ -310,10 +310,12 @@ export async function POST(request: Request) {
   conexao.release();
 
   try {
-    const telefoneNumerico = cliente.telefone.replace(/\D/g, "");
-    const telefoneInternacional = telefoneNumerico.startsWith("55")
-      ? `+${telefoneNumerico}`
-      : `+55${telefoneNumerico}`;
+      const telefoneNumerico = cliente.telefone.replace(/\D/g, "");
+      const jaTemPais =
+        telefoneNumerico.startsWith("55") && telefoneNumerico.length >= 12;
+      const telefoneInternacional = jaTemPais
+        ? `+${telefoneNumerico}`
+        : `+55${telefoneNumerico}`;
 
     const resposta = await fetch(
       "https://api.checkout.infinitepay.io/links",
@@ -334,6 +336,7 @@ export async function POST(request: Request) {
         },
         }),
         cache: "no-store",
+        signal: AbortSignal.timeout(10000),
       }
     );
 
