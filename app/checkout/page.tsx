@@ -303,8 +303,18 @@ export default function CheckoutPage() {
         );
       }
 
-      if (!dados.checkoutUrl) {
+      if (
+        typeof dados.checkoutUrl !== "string" ||
+        !dados.checkoutUrl
+      ) {
         throw new Error("O link de pagamento não foi recebido.");
+      }
+
+      if (
+        typeof dados.acompanhamentoUrl !== "string" ||
+        !dados.acompanhamentoUrl
+      ) {
+        throw new Error("O link de acompanhamento não foi recebido.");
       }
 
       window.location.assign(dados.checkoutUrl);

@@ -1,13 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { Pool } from "pg";
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: true },
-  max: 5,
-});
+import { db } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -24,7 +18,7 @@ export async function GET(request: NextRequest) {
     .digest("hex");
 
   try {
-    const resultado = await pool.query(
+    const resultado = await db.query(
       `
         SELECT
           codigo,
