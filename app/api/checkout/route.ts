@@ -7,6 +7,7 @@ import {
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { calcularFrete, type EnderecoEntrega } from "@/lib/frete";
+import { Resend } from "resend";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,12 @@ const SITE_URL =
 
 const INFINITEPAY_HANDLE =
   process.env.INFINITEPAY_HANDLE || "bychicuti";
+
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const EMAIL_REMETENTE =
+  process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
 
 type ItemRecebido = {
   variacaoId: number;
@@ -26,6 +33,7 @@ type ModalidadeEntrega = "ENTREGA" | "RETIRADA";
 type ClienteCheckout = EnderecoEntrega & {
   nome: string;
   telefone: string;
+  email: string;
 };
 
 type ProdutoBanco = {
@@ -63,24 +71,27 @@ export async function POST(request: Request) {
       );
     }
 
-    cliente = {
-      nome: texto(dadosCliente?.nome),
-      telefone: texto(dadosCliente?.telefone),
-      cep: texto(dadosCliente?.cep).replace(/\D/g, ""),
-      endereco: texto(dadosCliente?.endereco),
-      numero: texto(dadosCliente?.numero),
-      complemento: texto(dadosCliente?.complemento),
-      bairro: texto(dadosCliente?.bairro),
-      cidade: texto(dadosCliente?.cidade),
-      uf: texto(dadosCliente?.uf).toUpperCase(),
-    };
+cliente = {
+  nome: texto(dadosCliente?.nome),
+  telefone: texto(dadosCliente?.telefone),
+  email: texto(dadosCliente?.email).toLowerCase(),
+  cep: texto(dadosCliente?.cep).replace(/\D/g, ""),
+  endereco: texto(dadosCliente?.endereco),
+  numero: texto(dadosCliente?.numero),
+  complemento: texto(dadosCliente?.complemento),
+  bairro: texto(dadosCliente?.bairro),
+  cidade: texto(dadosCliente?.cidade),
+  uf: texto(dadosCliente?.uf).toUpperCase(),
+};
 
-    if (
-      cliente.nome.length < 3 ||
-      cliente.nome.length > 150 ||
-      cliente.telefone.length < 10 ||
-      cliente.telefone.length > 30
-    ) {
+      if (
+        cliente.nome.length < 3 ||
+        cliente.nome.length > 150 ||
+        cliente.telefone.length < 10 ||
+        cliente.telefone.length > 30 ||
+        cliente.email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cliente.email)
+      ) {
       return NextResponse.json(
         { erro: "Confira seu nome e telefone." },
         { status: 400 }
@@ -320,12 +331,13 @@ export async function POST(request: Request) {
       throw new Error("O valor total do pedido é inválido.");
     }
 
-    await conexao.query(
+        await conexao.query(
       `
         INSERT INTO pedidos (
           codigo,
           cliente_nome,
           cliente_telefone,
+          cliente_email,
           valor_total,
           status,
           provedor_pagamento,
@@ -342,14 +354,18 @@ export async function POST(request: Request) {
           token_acompanhamento_hash
         )
         VALUES (
-          $1, $2, $3, $4, 'PENDENTE', 'INFINITEPAY', $5,
-          $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+          $1, $2, $3, $4, $5,
+          'PENDENTE',
+          'INFINITEPAY',
+          $6, $7, $8, $9, $10, $11, $12,
+          $13, $14, $15, $16
         )
       `,
       [
         codigoPedido,
         cliente.nome,
         cliente.telefone,
+        cliente.email,
         totalPedidoCentavos / 100,
         orderNsu,
         modalidadeEntrega === "ENTREGA" ? cliente.cep : null,
@@ -547,6 +563,19 @@ export async function POST(request: Request) {
       );
     }
 
+    const acompanhamentoUrl =
+      `${SITE_URL}/acompanhar-pedido?token=${encodeURIComponent(
+        tokenAcompanhamento
+      )}`;
+
+    await enviarEmailPedido({
+      email: cliente.email,
+      nome: cliente.nome,
+      codigo: codigoPedido,
+      acompanhamentoUrl,
+      total: totalPedidoCentavos / 100,
+    });
+
     return NextResponse.json({
       codigo: codigoPedido,
       acompanhamentoUrl: `${SITE_URL}/acompanhar-pedido?token=${tokenAcompanhamento}`,
@@ -594,6 +623,65 @@ export async function POST(request: Request) {
     );
   }
 }
+
+    async function enviarEmailPedido({
+      email,
+      nome,
+      codigo,
+      acompanhamentoUrl,
+      total,
+    }: {
+      email: string;
+      nome: string;
+      codigo: string;
+      acompanhamentoUrl: string;
+      total: number;
+    }) {
+      if (!process.env.RESEND_API_KEY) {
+        console.error("RESEND_API_KEY não configurada.");
+        return;
+      }
+
+      try {
+        const { error } = await resend.emails.send({
+          from: EMAIL_REMETENTE,
+          to: email,
+          subject: `Pedido ${codigo} recebido - ByChicuti`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #5C2A2A;">
+              <h1>ByChicuti</h1>
+              <h2>Olá, ${nome.replace(/[&<>"']/g, (caractere) => ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[caractere]!) }!</h2>
+              <p>Recebemos seu pedido e o link para pagamento Pix foi gerado.</p>
+              <p><strong>Código do pedido:</strong> ${codigo}</p>
+              <p><strong>Total:</strong> ${total.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}</p>
+              <p>Você pode acompanhar o status do seu pedido pelo link abaixo:</p>
+              <p>
+                <a href="${acompanhamentoUrl}" style="display: inline-block; background: #863D3D; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px;">
+                  Acompanhar meu pedido
+                </a>
+              </p>
+              <p>Este pedido ainda está aguardando a confirmação do pagamento.</p>
+              <p>Obrigado por comprar na ByChicuti!</p>
+            </div>
+          `,
+        });
+
+        if (error) {
+          console.error("Falha no envio do e-mail do pedido:", error);
+        }
+      } catch (erro) {
+        console.error("Erro inesperado ao enviar e-mail do pedido:", erro);
+      }
+    }
 
 async function buscarItensDoPedido(
   orderNsu: string,

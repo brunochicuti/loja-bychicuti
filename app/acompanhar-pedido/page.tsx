@@ -26,12 +26,12 @@ function normalizarStatus(status: string | null | undefined) {
 }
 
 function formatarData(data: string | null) {
-  if (!data) return "Ainda não disponível";
+  if (!data) return "Ainda n├úo dispon├¡vel";
 
   const dataFormatada = new Date(data);
 
   if (Number.isNaN(dataFormatada.getTime())) {
-    return "Ainda não disponível";
+    return "Ainda n├úo dispon├¡vel";
   }
 
   return dataFormatada.toLocaleString("pt-BR");
@@ -50,7 +50,7 @@ function ConteudoAcompanharPedido() {
 
     async function buscarPedido() {
       if (!token) {
-        setErro("O link de acompanhamento está incompleto.");
+        setErro("O link de acompanhamento est├í incompleto.");
         setCarregando(false);
         return;
       }
@@ -65,7 +65,7 @@ function ConteudoAcompanharPedido() {
 
         if (!resposta.ok) {
           throw new Error(
-            dados.erro || "Não foi possível localizar o pedido."
+            dados.erro || "N├úo foi poss├¡vel localizar o pedido."
           );
         }
 
@@ -78,7 +78,7 @@ function ConteudoAcompanharPedido() {
           setErro(
             error instanceof Error
               ? error.message
-              : "Não foi possível consultar o pedido."
+              : "N├úo foi poss├¡vel consultar o pedido."
           );
         }
       } finally {
@@ -121,7 +121,7 @@ const status =
           href="/"
           className="text-sm font-medium underline underline-offset-4"
         >
-          ← Voltar para a loja
+          ÔåÉ Voltar para a loja
         </a>
 
         <header className="mb-8 mt-8 text-center">
@@ -129,7 +129,7 @@ const status =
             Acompanhe seu pedido
           </h1>
           <p className="mt-3 text-[#795858]">
-            Veja aqui as informações e o andamento da sua compra.
+            Veja aqui as informa├º├Áes e o andamento da sua compra.
           </p>
         </header>
 
@@ -141,7 +141,7 @@ const status =
           ) : erro ? (
             <div className="py-6 text-center">
               <h2 className="text-xl font-semibold">
-                Não foi possível consultar
+                N├úo foi poss├¡vel consultar
               </h2>
               <p className="mt-3 text-sm">{erro}</p>
               <button
@@ -155,7 +155,7 @@ const status =
             <>
               <div className="border-b border-[#F0E4E0] pb-5">
                 <p className="text-sm text-[#795858]">
-                  Código do pedido
+                  C├│digo do pedido
                 </p>
                 <p className="mt-1 text-2xl font-bold">
                   {pedido.codigo}
@@ -201,7 +201,7 @@ const status =
                                 : "border border-[#D8C4BE] text-[#795858]"
                             }`}
                           >
-                            {concluida ? "✓" : indice + 1}
+                            {concluida ? "Ô£ô" : indice + 1}
                           </span>
                           <div>
                             <p
@@ -222,7 +222,7 @@ const status =
 
                 {!pago && !cancelado && !erroPagamento && (
                   <p className="mt-5 rounded-lg bg-[#FBF6F3] p-3 text-sm">
-                    O andamento da preparação e da entrega será exibido
+                    O andamento da prepara├º├úo e da entrega ser├í exibido
                     conforme a loja atualizar o pedido.
                   </p>
                 )}
@@ -230,7 +230,7 @@ const status =
 
               <div className="border-t border-[#F0E4E0] pt-4 text-sm text-[#795858]">
                 <p>
-                  Última atualização:{" "}
+                  ├Ültima atualiza├º├úo:{" "}
                   {formatarData(pedido.atualizadoEm)}
                 </p>
               </div>
@@ -239,7 +239,7 @@ const status =
         </section>
 
         <p className="mt-6 text-center text-sm text-[#795858]">
-          Dúvidas? Entre em contato com a equipe da ByChicuti.
+          D├║vidas? Entre em contato com a equipe da ByChicuti.
         </p>
       </div>
     </main>

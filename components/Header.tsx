@@ -267,6 +267,12 @@ Gostaria de finalizar minha compra.`;
                 Visite nossa loja
               </a>
             </li>
+            
+          <li>
+            <a href="/meus-pedidos" className="hover:text-[#863D3D]">
+              Meus pedidos
+            </a>
+          </li>
           </ul>
         </nav>
 
@@ -634,6 +640,16 @@ Gostaria de finalizar minha compra.`;
             <li>
               <a href="/#visitar" onClick={() => setOpen(false)}>
                 Visite nossa loja
+              </a>
+            </li>
+
+            <li>
+              <a
+                href="/meus-pedidos"
+                onClick={() => setOpen(false)}
+                className="hover:text-[#863D3D]"
+              >
+                Meus pedidos
               </a>
             </li>
 

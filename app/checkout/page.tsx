@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -26,6 +25,7 @@ export default function CheckoutPage() {
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [email, setEmail] = useState("");
   const [modalidadeEntrega, setModalidadeEntrega] =
     useState<ModalidadeEntrega>("ENTREGA");
 
@@ -227,8 +227,21 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (telefone.trim().length < 10) {
+    if (
+      telefone.trim().length < 10 ||
+      telefone.trim().length > 30
+    ) {
       setErro("Informe um WhatsApp válido para contato.");
+      return;
+    }
+
+    const emailNormalizado = email.trim().toLowerCase();
+
+    if (
+      emailNormalizado.length > 254 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalizado)
+    ) {
+      setErro("Informe um endereço de e-mail válido.");
       return;
     }
 
@@ -286,6 +299,7 @@ export default function CheckoutPage() {
           cliente: {
             nome: nome.trim(),
             telefone: telefone.trim(),
+            email: emailNormalizado,
             ...destino,
           },
           itens: carrinho.map((item) => ({
@@ -389,7 +403,7 @@ export default function CheckoutPage() {
                 />
 
                 <span>
-                  <strong className="block">Receber em casa</strong>
+                  <strong className="block">Entrega</strong>
                   <span className="mt-1 block text-sm text-[#5C2A2A]/70">
                     Informe seu endereço e calcule o valor da entrega.
                   </span>
@@ -599,6 +613,32 @@ export default function CheckoutPage() {
                 className="w-full rounded-lg border border-[#863D3D]/25 px-4 py-3 outline-none focus:ring-2 focus:ring-[#863D3D]/30"
                 placeholder="(67) 99999-9999"
               />
+            </div>
+
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-2 block text-sm font-medium"
+              >
+                E-mail para acompanhar o pedido
+              </label>
+
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                maxLength={254}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-[#863D3D]/25 px-4 py-3 outline-none focus:ring-2 focus:ring-[#863D3D]/30"
+                placeholder="voce@exemplo.com"
+              />
+
+              <p className="mt-2 text-xs text-[#5C2A2A]/65">
+                Usaremos este endereço para enviar informações sobre seu pedido.
+              </p>
             </div>
 
             {modalidadeEntrega === "ENTREGA" && (

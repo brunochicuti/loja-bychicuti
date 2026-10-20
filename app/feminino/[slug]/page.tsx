@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCarrinho } from "@/contexto/carrinhoContexto";
 type Produto = {
   id: number | string;
@@ -36,6 +36,7 @@ const WHATSAPP = "https://wa.me/556796910734";
 export default function PaginaProduto() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
+  const router = useRouter();
 
   const { adicionarAoCarrinho, totalItens, carrinho } = useCarrinho();
 
@@ -195,54 +196,61 @@ export default function PaginaProduto() {
   });
   
   
-  const mensagem = encodeURIComponent(
-    [
-      `Olá! Tenho interesse neste produto: ${produto.nome},
-      Código: ${produto.codigo || "Não informado"},
-      cor ${corSelecionada}, 
-      tamanho ${tamanhoSelecionado},
-      Quantidade: ${quantidade}.,
+    const mensagem = encodeURIComponent(
+      [
+        "Olá! Gostaria de fazer uma encomenda pela ByChicuti.",
+        "",
+        `Produto: ${produto.nome}`,
+        `Código: ${produto.codigo || "Não informado"}`,
+        `Cor: ${corSelecionada || "Não selecionada"}`,
+        `Tamanho: ${tamanhoSelecionado || "Não selecionado"}`,
+        `Quantidade: ${quantidade}`,
+        `Valor dos produtos: ${total}`,
+      ].join("\n")
+    );
 
-      TOTAL: ${total}`
-    ].join("\n")
-  );
 
-  function adicionarProduto() {
-    const idNumerico = Number(produto.id);
+    function adicionarProduto(): boolean {
+      const idNumerico = Number(produto.id);
 
-    if (
-      !Number.isInteger(idNumerico) ||
-      idNumerico <= 0 ||
-      !Number.isFinite(preco) ||
-      !corSelecionada ||
-      !tamanhoSelecionado ||
-      !variacaoSelecionada ||
-      variacaoSelecionada.quantidade <= 0 ||
-      quantidade <= 0 ||
-      quantidade > estoqueRestante
-    ) {
-      console.error("Não foi possível adicionar o produto:", {
-        produto,
-        corSelecionada,
-        tamanhoSelecionado,
-        variacaoSelecionada,
+      if (
+        !Number.isInteger(idNumerico) ||
+        idNumerico <= 0 ||
+        !Number.isFinite(preco) ||
+        preco < 0 ||
+        !corSelecionada ||
+        !tamanhoSelecionado ||
+        !variacaoSelecionada ||
+        Number(variacaoSelecionada.id) <= 0 ||
+        variacaoSelecionada.quantidade <= 0 ||
+        quantidade <= 0 ||
+        quantidade > estoqueRestante
+      ) {
+        setErro("Confira a cor, o tamanho e a quantidade disponíveis.");
+        return false;
+      }
+
+      adicionarAoCarrinho({
+        id: idNumerico,
+        variacaoId: variacaoSelecionada.id,
+        nome: produto.nome,
+        preco,
+        imagem: imagemAtual,
+        cor: corSelecionada,
+        tamanho: tamanhoSelecionado,
+        quantidade,
       });
-      return;
+
+      setErro("");
+      setAdicionado(true);
+      return true;
     }
 
-    adicionarAoCarrinho({
-      id: idNumerico,
-      variacaoId: variacaoSelecionada.id,
-      nome: produto.nome,
-      preco,
-      imagem: imagemAtual,
-      cor: corSelecionada,
-      tamanho: tamanhoSelecionado,
-      quantidade,
-    });
-
-    setAdicionado(true);
-  }
+    function comprarAgora() {
+      if (adicionarProduto()) {
+        router.push("/checkout");
+      }
+    }
 
   return (
     <main className="produto-pagina">
@@ -425,34 +433,44 @@ export default function PaginaProduto() {
           tamanhoSelecionado &&
           variacaoSelecionada &&
           variacaoSelecionada.quantidade > 0 ? (
-            <div className="produto-acoes">
-              <button
-                type="button"
-                className="produto-adicionar"
-                onClick={adicionarProduto}
-              >
-                Adicionar ao carrinho
-              </button>
 
-              <p className="produto-teste" aria-live="polite">
-                Itens no carrinho: {totalItens}
+          <div className="produto-acoes">
+            <button
+              type="button"
+              className="produto-comprar-agora"
+              onClick={comprarAgora}
+            >
+              Comprar agora
+            </button>
+
+            <button
+              type="button"
+              className="produto-adicionar"
+              onClick={adicionarProduto}
+            >
+              Adicionar ao carrinho
+            </button>
+
+            <p className="produto-teste" aria-live="polite">
+              Itens no carrinho: {totalItens}
+            </p>
+
+            {adicionado && (
+              <p className="produto-sucesso" role="status">
+                Produto adicionado ao carrinho!
               </p>
+            )}
 
-              {adicionado && (
-                <p className="produto-sucesso" role="status">
-                  Produto adicionado ao carrinho!
-                </p>
-              )}
+            <a
+              className="produto-whatsapp"
+              href={`${WHATSAPP}?text=${mensagem}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Faça sua encomenda pelo WhatsApp
+            </a>
+          </div>
 
-              <a
-                className="produto-whatsapp"
-                href={`${WHATSAPP}?text=${mensagem}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Comprar pelo WhatsApp
-              </a>
-            </div>
           ) : (
             <p className="produto-aviso">
               Selecione uma cor e um tamanho disponíveis.
@@ -647,6 +665,21 @@ export default function PaginaProduto() {
           align-items: stretch;
           gap: 12px;
           margin-top: 20px;
+        }
+
+        .produto-comprar-agora {
+          padding: 14px 20px;
+          border: 1px solid #863d3d;
+          border-radius: 8px;
+          background: #863d3d;
+          color: white;
+          font: inherit;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .produto-comprar-agora:hover {
+          background: #5c2a2a;
         }
 
         .produto-adicionar {
