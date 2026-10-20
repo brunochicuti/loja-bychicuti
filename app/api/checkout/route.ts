@@ -1,7 +1,12 @@
 
-import { randomUUID } from "crypto";
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+} from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { calcularFrete, type EnderecoEntrega } from "@/lib/frete";
 
 export const runtime = "nodejs";
 
@@ -16,6 +21,13 @@ type ItemRecebido = {
   quantidade: number;
 };
 
+type ModalidadeEntrega = "ENTREGA" | "RETIRADA";
+
+type ClienteCheckout = EnderecoEntrega & {
+  nome: string;
+  telefone: string;
+};
+
 type ProdutoBanco = {
   variacao_id: number;
   produto_id: number;
@@ -26,30 +38,44 @@ type ProdutoBanco = {
   preco: string | number;
 };
 
-export async function POST(request: Request) {
-  let cliente: {
-    nome: string;
-    telefone: string;
-  };
+function texto(valor: unknown): string {
+  return typeof valor === "string" ? valor.trim() : "";
+}
 
+export async function POST(request: Request) {
+  let cliente: ClienteCheckout;
   let itens: ItemRecebido[];
+  let modalidadeEntrega: ModalidadeEntrega;
 
   try {
     const corpo = await request.json();
+    const dadosCliente = corpo?.cliente;
+
+    modalidadeEntrega = corpo?.modalidadeEntrega;
+
+    if (
+      modalidadeEntrega !== "ENTREGA" &&
+      modalidadeEntrega !== "RETIRADA"
+    ) {
+      return NextResponse.json(
+        { erro: "Selecione uma modalidade de recebimento válida." },
+        { status: 400 }
+      );
+    }
 
     cliente = {
-      nome:
-        typeof corpo?.cliente?.nome === "string"
-          ? corpo.cliente.nome.trim()
-          : "",
-      telefone:
-        typeof corpo?.cliente?.telefone === "string"
-          ? corpo.cliente.telefone.trim()
-          : "",
+      nome: texto(dadosCliente?.nome),
+      telefone: texto(dadosCliente?.telefone),
+      cep: texto(dadosCliente?.cep).replace(/\D/g, ""),
+      endereco: texto(dadosCliente?.endereco),
+      numero: texto(dadosCliente?.numero),
+      complemento: texto(dadosCliente?.complemento),
+      bairro: texto(dadosCliente?.bairro),
+      cidade: texto(dadosCliente?.cidade),
+      uf: texto(dadosCliente?.uf).toUpperCase(),
     };
 
     if (
-      !cliente.nome ||
       cliente.nome.length < 3 ||
       cliente.nome.length > 150 ||
       cliente.telefone.length < 10 ||
@@ -59,6 +85,31 @@ export async function POST(request: Request) {
         { erro: "Confira seu nome e telefone." },
         { status: 400 }
       );
+    }
+
+    // O endereço é obrigatório somente para entrega em casa.
+    if (modalidadeEntrega === "ENTREGA") {
+      if (
+        !/^\d{8}$/.test(cliente.cep) ||
+        !cliente.endereco ||
+        cliente.endereco.length > 200 ||
+        !cliente.numero ||
+        cliente.numero.length > 20 ||
+        (cliente.complemento?.length ?? 0) > 100 ||
+        !cliente.bairro ||
+        cliente.bairro.length > 100 ||
+        !cliente.cidade ||
+        cliente.cidade.length > 100 ||
+        !/^[A-Z]{2}$/.test(cliente.uf)
+      ) {
+        return NextResponse.json(
+          {
+            erro:
+              "Confira o CEP e todos os dados do endereço de entrega.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (
@@ -115,11 +166,64 @@ export async function POST(request: Request) {
     );
   }
 
-  const conexao = await db.connect();
+  // Na retirada, o frete é zero e não precisamos calcular uma rota.
+  let freteCentavos = 0;
+  let distanciaKm: number | null = null;
 
-  let orderNsu = "";
-  let codigoPedido = "";
-  let pedidoCriado = false;
+  if (modalidadeEntrega === "ENTREGA") {
+    try {
+      const resultadoFrete = await calcularFrete(cliente);
+
+      if (resultadoFrete.modalidade === "CORREIOS") {
+        return NextResponse.json(
+          {
+            erro:
+              "Esse endereço fica a mais de 100 km da loja. A cotação automática dos Correios ainda não está disponível. Nenhum pedido foi criado.",
+          },
+          { status: 400 }
+        );
+      }
+
+      freteCentavos = resultadoFrete.freteCentavos ?? -1;
+      distanciaKm = resultadoFrete.distanciaKm;
+
+      if (
+        !Number.isSafeInteger(freteCentavos) ||
+        freteCentavos < 0
+      ) {
+        return NextResponse.json(
+          { erro: "Não foi possível determinar o valor do frete." },
+          { status: 400 }
+        );
+      }
+    } catch (erro) {
+      console.error("Erro ao calcular frete:", erro);
+
+      return NextResponse.json(
+        {
+          erro:
+            "Não foi possível calcular a entrega para esse endereço. Confira os dados e tente novamente.",
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  const orderNsu = randomUUID();
+  const codigoPedido = `BC-${randomUUID()
+    .slice(0, 8)
+    .toUpperCase()}`;
+
+    const tokenAcompanhamento = randomBytes(32).toString("hex");
+
+    const tokenAcompanhamentoHash = createHash("sha256")
+      .update(tokenAcompanhamento)
+      .digest("hex");
+
+  let totalPedidoCentavos = 0;
+  let subtotalProdutosCentavos = 0;
+
+  const conexao = await db.connect();
 
   try {
     await conexao.query("BEGIN");
@@ -148,17 +252,16 @@ export async function POST(request: Request) {
 
     const produtos = resultado.rows;
 
-        if (produtos.length !== itens.length) {
-        await conexao.query("ROLLBACK");
-        conexao.release();
+    if (produtos.length !== itens.length) {
+      await conexao.query("ROLLBACK");
 
-        return NextResponse.json(
-            {
-            erro:
-                "Um ou mais produtos não estão disponíveis. Atualize seu carrinho.",
-            },
-            { status: 400 }
-        );
+      return NextResponse.json(
+        {
+          erro:
+            "Um ou mais produtos não estão disponíveis. Atualize seu carrinho.",
+        },
+        { status: 400 }
+      );
     }
 
     const produtosPorId = new Map(
@@ -167,8 +270,6 @@ export async function POST(request: Request) {
         produto,
       ])
     );
-
-    let totalCentavos = 0;
 
     const itensCalculados = itens.map((item) => {
       const produto = produtosPorId.get(item.variacaoId);
@@ -197,7 +298,7 @@ export async function POST(request: Request) {
       const subtotalCentavos =
         precoCentavos * item.quantidade;
 
-      totalCentavos += subtotalCentavos;
+      subtotalProdutosCentavos += subtotalCentavos;
 
       return {
         ...item,
@@ -207,16 +308,17 @@ export async function POST(request: Request) {
       };
     });
 
+    totalPedidoCentavos =
+      subtotalProdutosCentavos + freteCentavos;
+
     if (
-      !Number.isSafeInteger(totalCentavos) ||
-      totalCentavos <= 0 ||
-      totalCentavos > 100_000_000
+      !Number.isSafeInteger(subtotalProdutosCentavos) ||
+      subtotalProdutosCentavos <= 0 ||
+      !Number.isSafeInteger(totalPedidoCentavos) ||
+      totalPedidoCentavos > 100_000_000
     ) {
       throw new Error("O valor total do pedido é inválido.");
     }
-
-    orderNsu = randomUUID();
-    codigoPedido = `BC-${randomUUID().slice(0, 8).toUpperCase()}`;
 
     await conexao.query(
       `
@@ -227,16 +329,41 @@ export async function POST(request: Request) {
           valor_total,
           status,
           provedor_pagamento,
-          order_nsu
+          order_nsu,
+          cliente_cep,
+          cliente_endereco,
+          cliente_numero,
+          cliente_complemento,
+          cliente_bairro,
+          cliente_cidade,
+          cliente_uf,
+          frete_valor,
+          modalidade_entrega,
+          token_acompanhamento_hash
         )
-        VALUES ($1, $2, $3, $4, 'PENDENTE', 'INFINITEPAY', $5)
+        VALUES (
+          $1, $2, $3, $4, 'PENDENTE', 'INFINITEPAY', $5,
+          $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+        )
       `,
       [
         codigoPedido,
         cliente.nome,
         cliente.telefone,
-        totalCentavos / 100,
+        totalPedidoCentavos / 100,
         orderNsu,
+        modalidadeEntrega === "ENTREGA" ? cliente.cep : null,
+        modalidadeEntrega === "ENTREGA" ? cliente.endereco : null,
+        modalidadeEntrega === "ENTREGA" ? cliente.numero : null,
+        modalidadeEntrega === "ENTREGA"
+          ? cliente.complemento || null
+          : null,
+        modalidadeEntrega === "ENTREGA" ? cliente.bairro : null,
+        modalidadeEntrega === "ENTREGA" ? cliente.cidade : null,
+        modalidadeEntrega === "ENTREGA" ? cliente.uf : null,
+        freteCentavos / 100,
+        modalidadeEntrega,
+        tokenAcompanhamentoHash,
       ]
     );
 
@@ -279,7 +406,6 @@ export async function POST(request: Request) {
     }
 
     await conexao.query("COMMIT");
-    pedidoCriado = true;
   } catch (erro) {
     await conexao.query("ROLLBACK").catch(() => undefined);
 
@@ -291,8 +417,6 @@ export async function POST(request: Request) {
     const erroDeEstoque =
       mensagem.startsWith("Estoque insuficiente");
 
-    conexao.release();
-
     return NextResponse.json(
       {
         erro: erroDeEstoque
@@ -302,20 +426,53 @@ export async function POST(request: Request) {
       { status: erroDeEstoque ? 400 : 500 }
     );
   } finally {
-    if (!pedidoCriado) {
-      // A conexão já foi liberada no tratamento de erro.
-    }
+    conexao.release();
   }
 
-  conexao.release();
-
   try {
-      const telefoneNumerico = cliente.telefone.replace(/\D/g, "");
-      const jaTemPais =
-        telefoneNumerico.startsWith("55") && telefoneNumerico.length >= 12;
-      const telefoneInternacional = jaTemPais
-        ? `+${telefoneNumerico}`
-        : `+55${telefoneNumerico}`;
+    const telefoneNumerico = cliente.telefone.replace(/\D/g, "");
+
+    const jaTemPais =
+      telefoneNumerico.startsWith("55") &&
+      telefoneNumerico.length >= 12;
+
+    const telefoneInternacional = jaTemPais
+      ? `+${telefoneNumerico}`
+      : `+55${telefoneNumerico}`;
+
+    const itensPagamento = await buscarItensDoPedido(
+      orderNsu,
+      freteCentavos,
+      cliente.cidade,
+      modalidadeEntrega
+    );
+
+    const corpoPagamento: Record<string, unknown> = {
+      handle: INFINITEPAY_HANDLE,
+      order_nsu: orderNsu,
+      redirect_url: `${SITE_URL}/pedido-confirmado?token=${encodeURIComponent(
+      tokenAcompanhamento
+      )}`,
+      webhook_url: `${SITE_URL}/api/webhooks/infinitepay`,
+      items: itensPagamento,
+      customer: {
+        name: cliente.nome,
+        phone_number: telefoneInternacional,
+      },
+    };
+
+    // A retirada não exige nem envia um endereço de entrega.
+    if (modalidadeEntrega === "ENTREGA") {
+      corpoPagamento.address = {
+        cep: cliente.cep,
+        street: cliente.endereco,
+        number: cliente.numero,
+        ...(cliente.complemento
+          ? { complement: cliente.complemento }
+          : {}),
+        neighborhood: cliente.bairro,
+      };
+    }
 
     const resposta = await fetch(
       "https://api.checkout.infinitepay.io/links",
@@ -324,44 +481,30 @@ export async function POST(request: Request) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-        handle: INFINITEPAY_HANDLE,
-        order_nsu: orderNsu,
-        redirect_url: `${SITE_URL}/pedido-confirmado`,
-        webhook_url: `${SITE_URL}/api/webhooks/infinitepay`,
-        items: await buscarItensDoPedido(orderNsu),
-        customer: {
-            name: cliente.nome,
-            phone_number: telefoneInternacional,
-        },
-        }),
+        body: JSON.stringify(corpoPagamento),
         cache: "no-store",
         signal: AbortSignal.timeout(10000),
       }
     );
 
-const textoResposta = await resposta.text();
+    const textoResposta = await resposta.text();
 
-let dados: {
-  url?: string;
-  message?: string;
-  error?: string;
-};
+    let dados: {
+      url?: string;
+      message?: string;
+      error?: string;
+    };
 
-try {
-  dados = JSON.parse(textoResposta);
-} catch {
-  console.error("A InfinitePay retornou uma resposta inválida.");
-  throw new Error(
-    "Não foi possível interpretar a resposta da InfinitePay."
-  );
-}
+    try {
+      dados = JSON.parse(textoResposta);
+    } catch {
+      throw new Error(
+        "Não foi possível interpretar a resposta da InfinitePay."
+      );
+    }
 
-console.log("Status da resposta InfinitePay:", resposta.status);
-console.log("Link recebido:", Boolean(dados?.url));
-
-const checkoutUrl =
-  typeof dados?.url === "string" ? dados.url : "";
+    const checkoutUrl =
+      typeof dados?.url === "string" ? dados.url : "";
 
     let urlValida = false;
 
@@ -379,12 +522,14 @@ const checkoutUrl =
     }
 
     if (!resposta.ok || !urlValida) {
-    throw new Error(
-    `A InfinitePay não retornou um link válido (status ${resposta.status}, mensagem: ${String(dados?.message ?? dados?.error ?? "sem mensagem").slice(0, 200)}).`
+      throw new Error(
+        `A InfinitePay não retornou um link válido (status ${resposta.status}, mensagem: ${String(
+          dados?.message ?? dados?.error ?? "sem mensagem"
+        ).slice(0, 200)}).`
       );
     }
 
-     const resultadoAtualizacao = await db.query(
+    const resultadoAtualizacao = await db.query(
       `
         UPDATE pedidos
         SET link_pagamento = $1,
@@ -404,13 +549,18 @@ const checkoutUrl =
 
     return NextResponse.json({
       codigo: codigoPedido,
+      acompanhamentoUrl: `${SITE_URL}/acompanhar-pedido?token=${tokenAcompanhamento}`,
       checkoutUrl,
+      modalidadeEntrega,
+      subtotalProdutos: subtotalProdutosCentavos / 100,
+      frete: freteCentavos / 100,
+      total: totalPedidoCentavos / 100,
+      distanciaKm,
     });
-
-   } catch (erro) {
+  } catch (erro) {
     console.error("Erro ao gerar checkout:", erro);
 
-     await db.query(
+    await db.query(
       `
         UPDATE pedidos
         SET requer_analise_manual = TRUE,
@@ -421,7 +571,11 @@ const checkoutUrl =
           AND requer_analise_manual = FALSE
       `,
       [
-        `Falha ao criar o checkout na InfinitePay: ${erro instanceof Error ? erro.message : "erro desconhecido"}. Verificar se o link foi criado antes de tentar novamente.`,
+        `Falha ao criar o checkout na InfinitePay: ${
+          erro instanceof Error
+            ? erro.message
+            : "erro desconhecido"
+        }. Verificar se o link foi criado antes de tentar novamente.`,
         orderNsu,
       ]
     ).catch((erroAtualizacao) => {
@@ -441,7 +595,12 @@ const checkoutUrl =
   }
 }
 
-async function buscarItensDoPedido(orderNsu: string) {
+async function buscarItensDoPedido(
+  orderNsu: string,
+  freteCentavos: number,
+  cidade: string,
+  modalidadeEntrega: ModalidadeEntrega
+) {
   const resultado = await db.query(
     `
       SELECT
@@ -462,9 +621,24 @@ async function buscarItensDoPedido(orderNsu: string) {
     throw new Error("O pedido não possui itens.");
   }
 
-  return resultado.rows.map((item) => ({
+  const itens: {
+    quantity: number;
+    price: number;
+    description: string;
+  }[] = resultado.rows.map((item) => ({
     quantity: Number(item.quantidade),
     price: Number(item.preco_centavos),
     description: `${item.nome_produto} - ${item.tamanho} - ${item.cor}`,
   }));
+
+  // Só adiciona a cobrança de frete para pedidos de entrega.
+  if (modalidadeEntrega === "ENTREGA" && freteCentavos > 0) {
+    itens.push({
+      quantity: 1,
+      price: freteCentavos,
+      description: `Frete para ${cidade}`.slice(0, 200),
+    });
+  }
+
+  return itens;
 }

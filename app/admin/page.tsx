@@ -60,6 +60,29 @@ type PedidoEmAnalise = {
   atualizado_em: string;
 };
 
+type ItemPedido = {
+  nome_produto: string;
+  tamanho: string;
+  cor: string;
+  quantidade: number;
+  preco_unitario: number | string;
+  subtotal: number | string;
+};
+
+type Pedido = {
+  id: number;
+  codigo: string;
+  cliente_nome: string | null;
+  cliente_telefone: string | null;
+  valor_total: number | string;
+  status: string;
+  status_operacional: string;
+  modalidade_entrega: "ENTREGA" | "RETIRADA";
+  criado_em: string;
+  atualizado_em: string;
+  itens: ItemPedido[];
+};
+
 const categorias = [
   "Calcinhas",
   "Sutiãs",
@@ -139,6 +162,24 @@ export default function AdminPage() {
 
   const [pedidosEmAnalise, setPedidosEmAnalise] =
   useState<PedidoEmAnalise[]>([]);
+
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [paginaPedidos, setPaginaPedidos] = useState(1);
+const pedidosPorPagina = 10;
+
+const totalPaginasPedidos = Math.max(
+  1,
+  Math.ceil(pedidos.length / pedidosPorPagina)
+);
+
+const pedidosExibidos = pedidos.slice(
+  (paginaPedidos - 1) * pedidosPorPagina,
+  paginaPedidos * pedidosPorPagina
+);
+
+  const [carregandoPedidos, setCarregandoPedidos] = useState(false);
+  const [mensagemPedidos, setMensagemPedidos] = useState("");
+  const [pedidoAtualizando, setPedidoAtualizando] = useState<number | null>(null);
 
   const [imagemPrincipalCor, setImagemPrincipalCor] = useState("");
   const [imagensAdicionaisCor, setImagensAdicionaisCor] = useState<string[]>([]);
@@ -309,6 +350,127 @@ export default function AdminPage() {
     }
   }
 
+    async function carregarPedidos() {
+    setCarregandoPedidos(true);
+    setMensagemPedidos("");
+
+    try {
+      const resposta = await fetch("/api/admin/pedidos", {
+        cache: "no-store",
+      });
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        if (resposta.status === 401) {
+          setAutenticado(false);
+        }
+
+        throw new Error(
+          dados.erro || "Não foi possível carregar os pedidos."
+        );
+      }
+
+      setPedidos(dados.pedidos || []);
+    } catch (erro) {
+      setMensagemPedidos(
+        erro instanceof Error
+          ? erro.message
+          : "Erro ao carregar os pedidos."
+      );
+    } finally {
+      setCarregandoPedidos(false);
+    }
+  }
+
+  const etapasEntrega = [
+    "RECEBIDO",
+    "CONFIRMADO",
+    "EM_PREPARACAO",
+    "SAIU_PARA_ENTREGA",
+    "ENTREGUE",
+  ];
+
+  const etapasRetirada = [
+    "RECEBIDO",
+    "CONFIRMADO",
+    "EM_PREPARACAO",
+    "PRONTO_PARA_RETIRADA",
+    "RETIRADO",
+  ];
+
+  const nomesStatus: Record<string, string> = {
+    RECEBIDO: "Pedido recebido",
+    CONFIRMADO: "Pedido confirmado",
+    EM_PREPARACAO: "Em preparação",
+    SAIU_PARA_ENTREGA: "Saiu para entrega",
+    ENTREGUE: "Entregue",
+    PRONTO_PARA_RETIRADA: "Pronto para retirada",
+    RETIRADO: "Retirado pelo cliente",
+  };
+
+  async function avancarPedido(pedido: Pedido) {
+    const etapas =
+      pedido.modalidade_entrega === "RETIRADA"
+        ? etapasRetirada
+        : etapasEntrega;
+
+    const indiceAtual = etapas.indexOf(pedido.status_operacional);
+
+    if (indiceAtual < 0 || indiceAtual >= etapas.length - 1) {
+      setMensagemPedidos("Esse pedido não possui uma próxima etapa.");
+      return;
+    }
+
+    const proximoStatus = etapas[indiceAtual + 1];
+
+    const confirmado = window.confirm(
+      `Avançar o pedido ${pedido.codigo} para "${nomesStatus[proximoStatus]}"?`
+    );
+
+    if (!confirmado) return;
+
+    setPedidoAtualizando(pedido.id);
+    setMensagemPedidos("");
+
+    try {
+      const resposta = await fetch(
+        `/api/admin/pedidos/${pedido.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: proximoStatus }),
+        }
+      );
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        if (resposta.status === 401) {
+          setAutenticado(false);
+        }
+
+        throw new Error(
+          dados.erro || "Não foi possível atualizar o pedido."
+        );
+      }
+
+      await carregarPedidos();
+      setMensagemPedidos(
+        `Pedido ${pedido.codigo} atualizado para "${nomesStatus[proximoStatus]}".`
+      );
+    } catch (erro) {
+      setMensagemPedidos(
+        erro instanceof Error
+          ? erro.message
+          : "Erro ao atualizar o andamento."
+      );
+    } finally {
+      setPedidoAtualizando(null);
+    }
+  }
+
   useEffect(() => {
     let ativo = true;
 
@@ -338,6 +500,7 @@ export default function AdminPage() {
           if (ativo) {
             setProdutos(resultado.produtos || []);
             await carregarHistoricoVendas();
+            await carregarPedidos();
           }
         } else {
           setAutenticado(false);
@@ -397,6 +560,7 @@ export default function AdminPage() {
 
       await carregarProdutos();
       await carregarHistoricoVendas();
+      await carregarPedidos();
 
       setMensagem("Login realizado com sucesso!");
     } catch (erro) {
@@ -1224,6 +1388,268 @@ function buscarEstoquePorCodigo(e: React.FormEvent<HTMLFormElement>) {
                 </p>
               )}
             </section>
+
+            <section
+              id="gerenciar-pedidos"
+              className="mt-8 rounded border border-[#863D3D]/20 bg-white p-6"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-medium text-[#5C2A2A]">
+                    Gerenciar pedidos
+                  </h2>
+                  <p className="mt-2 text-sm text-[#5C2A2A]/70">
+                    Acompanhe os pedidos, confira os itens e avance o andamento
+                    operacional conforme cada etapa for concluída.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={carregarPedidos}
+                  disabled={carregandoPedidos}
+                  className="rounded bg-[#863D3D] px-4 py-3 text-sm text-white disabled:opacity-60"
+                >
+                  {carregandoPedidos ? "Atualizando..." : "Atualizar pedidos"}
+                </button>
+              </div>
+
+              {mensagemPedidos && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="mt-4 rounded bg-[#FBF6F3] p-3 text-sm text-[#5C2A2A]"
+                >
+                  {mensagemPedidos}
+                </p>
+              )}
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <span className="rounded bg-[#FBF6F3] px-3 py-2 text-sm text-[#5C2A2A]">
+                  {pedidos.length} pedidos carregados
+                </span>
+                <span className="rounded bg-green-50 px-3 py-2 text-sm text-green-800">
+                  {pedidos.filter((p) => p.status === "PAGO").length} pagos
+                </span>
+                <span className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {pedidos.filter((p) => p.status !== "PAGO").length} aguardando pagamento ou análise
+                </span>
+              </div>
+
+              {carregandoPedidos && pedidos.length === 0 ? (
+                <p className="mt-5 text-sm text-[#5C2A2A]/70">
+                  Carregando pedidos...
+                </p>
+              ) : pedidos.length === 0 ? (
+                <p className="mt-5 rounded bg-[#FBF6F3] p-4 text-sm text-[#5C2A2A]/70">
+                  Nenhum pedido encontrado.
+                </p>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  {pedidosExibidos.map((pedido) => {
+                    const etapas =
+                      pedido.modalidade_entrega === "RETIRADA"
+                        ? etapasRetirada
+                        : etapasEntrega;
+
+                    const indiceAtual = etapas.indexOf(
+                      pedido.status_operacional
+                    );
+
+                    const podeAvancar =
+                      pedido.status === "PAGO" &&
+                      indiceAtual >= 0 &&
+                      indiceAtual < etapas.length - 1;
+
+                    return (
+                      <article
+                        key={pedido.id}
+                        className="rounded border border-[#863D3D]/20 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-semibold text-[#5C2A2A]">
+                              Pedido {pedido.codigo}
+                            </h3>
+                            <p className="mt-1 text-sm text-[#5C2A2A]/70">
+                              Cliente: {pedido.cliente_nome || "Não informado"}
+                            </p>
+                            <p className="text-sm text-[#5C2A2A]/70">
+                              Telefone: {pedido.cliente_telefone || "Não informado"}
+                            </p>
+                            <p className="mt-1 text-xs text-[#5C2A2A]/60">
+                              Criado em: {formatarData(pedido.criado_em)}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col items-start gap-2">
+                            <span
+                              className={`rounded px-3 py-1 text-xs font-semibold ${
+                                pedido.status === "PAGO"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-amber-100 text-amber-900"
+                              }`}
+                            >
+                              Pagamento: {pedido.status}
+                            </span>
+
+                            <span className="rounded bg-[#FBF6F3] px-3 py-1 text-xs font-semibold text-[#863D3D]">
+                              {nomesStatus[pedido.status_operacional] ||
+                                pedido.status_operacional}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 border-t border-[#863D3D]/10 pt-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs text-[#5C2A2A]/60">
+                              Modalidade
+                            </p>
+                            <p className="text-sm font-medium text-[#5C2A2A]">
+                              {pedido.modalidade_entrega === "RETIRADA"
+                                ? "Retirada na loja"
+                                : "Entrega"}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-[#5C2A2A]/60">
+                              Valor total
+                            </p>
+                            <p className="font-semibold text-[#863D3D]">
+                              {Number(pedido.valor_total).toLocaleString(
+                                "pt-BR",
+                                { style: "currency", currency: "BRL" }
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-[#5C2A2A]">
+                            Itens do pedido
+                          </h4>
+
+                          {pedido.itens.length === 0 ? (
+                            <p className="mt-2 text-sm text-[#5C2A2A]/60">
+                              Nenhum item encontrado.
+                            </p>
+                          ) : (
+                            <ul className="mt-2 space-y-2">
+                              {pedido.itens.map((item, indice) => (
+                                <li
+                                  key={`${pedido.id}-${indice}`}
+                                  className="flex flex-wrap justify-between gap-2 rounded bg-[#FBF6F3] p-3 text-sm"
+                                >
+                                  <div>
+                                    <p className="font-medium text-[#5C2A2A]">
+                                      {item.nome_produto}
+                                    </p>
+                                    <p className="text-xs text-[#5C2A2A]/70">
+                                      Tamanho: {item.tamanho} · Cor: {item.cor} · Quantidade: {item.quantidade}
+                                    </p>
+                                  </div>
+                                  <p className="font-medium text-[#863D3D]">
+                                    {Number(item.subtotal).toLocaleString(
+                                      "pt-BR",
+                                      { style: "currency", currency: "BRL" }
+                                    )}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div className="mt-4 border-t border-[#863D3D]/10 pt-4">
+                          <p className="text-sm font-medium text-[#5C2A2A]">
+                            Progresso do pedido
+                          </p>
+
+                          <ol className="mt-3 flex flex-wrap gap-2">
+                            {etapas.map((etapa, indice) => {
+                              const concluida = indiceAtual >= indice;
+
+                              return (
+                                <li
+                                  key={etapa}
+                                  className={`rounded px-2 py-1 text-xs ${
+                                    concluida
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
+                                >
+                                  {concluida ? "✓ " : ""}
+                                  {nomesStatus[etapa]}
+                                </li>
+                              );
+                            })}
+                          </ol>
+
+                          {podeAvancar ? (
+                            <button
+                              type="button"
+                              onClick={() => avancarPedido(pedido)}
+                              disabled={pedidoAtualizando === pedido.id}
+                              className="mt-4 rounded bg-[#863D3D] px-4 py-3 text-sm font-medium text-white hover:bg-[#5C2A2A] disabled:opacity-60"
+                            >
+                              {pedidoAtualizando === pedido.id
+                                ? "Atualizando..."
+                                : `Avançar para ${
+                                    nomesStatus[etapas[indiceAtual + 1]]
+                                  }`}
+                            </button>
+                          ) : pedido.status !== "PAGO" ? (
+                            <p className="mt-3 text-sm text-amber-800">
+                              O andamento só pode avançar após a confirmação
+                              do pagamento.
+                            </p>
+                          ) : (
+                            <p className="mt-3 text-sm text-green-800">
+                              Pedido concluído.
+                            </p>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+  </div>
+              )}
+
+              {pedidos.length > pedidosPorPagina && (
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3 border-t border-[#863D3D]/10 pt-5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaginaPedidos((pagina) => Math.max(1, pagina - 1))
+                    }
+                    disabled={paginaPedidos === 1}
+                    className="rounded border border-[#863D3D]/30 px-4 py-2 text-sm text-[#5C2A2A] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Anterior
+                  </button>
+
+                  <span className="text-sm text-[#5C2A2A]/70">
+                    Página {paginaPedidos} de {totalPaginasPedidos}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaginaPedidos((pagina) =>
+                        Math.min(totalPaginasPedidos, pagina + 1)
+                      )
+                    }
+                    disabled={paginaPedidos >= totalPaginasPedidos}
+                    className="rounded bg-[#863D3D] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              )}
+            </section>
+
+
 
                 <section
                 id="pedidos-analise"
