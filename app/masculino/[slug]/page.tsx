@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCarrinho } from "@/contexto/carrinhoContexto";
 
 type Produto = {
@@ -32,10 +32,65 @@ type Catalogo = {
   variacoes: Variacao[];
 };
 
-const WHATSAPP = "https://wa.me/556796910734";
+function obterCorVisual(nome: string): string {
+  const normalizada = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  const cores: Record<string, string> = {
+    preto: "#222222",
+    preta: "#222222",
+    branco: "#FFFFFF",
+    branca: "#FFFFFF",
+    azul: "#2855A6",
+    "azul marinho": "#17264A",
+    marinho: "#17264A",
+    cappucino: "#7B3A26",
+    capuccino: "#7B3A26",
+    cappuccino: "#7B3A26",
+    castanho: "#8A6A55",
+    rubi: "#9B1B30",
+    sensuale: "#6E1E2B",
+    "verde etereo": "#8DB596",
+    vermelho: "#C62828",
+    vermelha: "#C62828",
+    vinho: "#722F37",
+    rosa: "#E88BA8",
+    pink: "#E85D9E",
+    roxo: "#7546A8",
+    lilas: "#B7A0D8",
+    verde: "#32805A",
+    amarelo: "#F2D34F",
+    laranja: "#E98232",
+    bege: "#D8C2A0",
+    nude: "#D9AE91",
+    marrom: "#795548",
+    cinza: "#929292",
+    mescla: "#A7A7A7",
+    prata: "#C5C7C9",
+    dourado: "#C6A34F",
+    creme: "#F3E8CF",
+  };
+
+  if (cores[normalizada]) return cores[normalizada];
+
+  // Também aceita cores cadastradas como códigos CSS hexadecimais.
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(nome.trim())) {
+    return nome.trim();
+  }
+
+  // Para nomes compostos, tenta reconhecer a cor principal pelo nome.
+  const correspondencia = Object.entries(cores).find(([chave]) =>
+    normalizada.includes(chave)
+  );
+  return correspondencia?.[1] ?? "#D7B8B8";
+}
 
 export default function PaginaProdutoMasculino() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
   const slug = params.slug;
 
   const { adicionarAoCarrinho, totalItens, carrinho } = useCarrinho();
@@ -186,24 +241,7 @@ export default function PaginaProdutoMasculino() {
 
   const preco = Number(produto.preco);
 
-  const total = (preco * quantidade).toLocaleString("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  });
-
-  const mensagem = encodeURIComponent(
-    [
-    `Olá! Tenho interesse no produto ${produto.nome}, 
-    código ${produto.codigo || "não informado"}, 
-    cor ${corSelecionada}, 
-    tamanho ${tamanhoSelecionado}, 
-    Quantidade: ${quantidade}. 
-
-    TOTAL: ${total}.`
-  ].join("\n")
-);
-
-  function adicionarProduto() {
+  function adicionarProduto(): boolean {
     const idNumerico = Number(produto.id);
 
     if (
@@ -217,7 +255,7 @@ export default function PaginaProdutoMasculino() {
       quantidade <= 0 ||
       quantidade > estoqueRestante
     ) {
-      return;
+      return false;
     }
 
     adicionarAoCarrinho({
@@ -232,6 +270,13 @@ export default function PaginaProdutoMasculino() {
     });
 
     setAdicionado(true);
+    return true;
+  }
+
+  function comprarAgora() {
+    if (adicionarProduto()) {
+      router.push("/checkout");
+    }
   }
 
   return (
@@ -312,31 +357,39 @@ export default function PaginaProdutoMasculino() {
 
           {produto.descricao && <p>{produto.descricao}</p>}
 
-          <h2>Cor</h2>
+          <h2>
+            Cor{corSelecionada ? `: ${corSelecionada}` : ": Selecione uma cor"}
+          </h2>
 
-          <div className="produto-opcoes">
-            {coresDisponiveis.map((cor) => (
-              <button
-                key={cor.cor}
-                type="button"
-                className={
-                  corSelecionada === cor.cor
-                    ? "produto-opcao selecionada"
-                    : "produto-opcao"
-                }
-                aria-pressed={corSelecionada === cor.cor}
-                onClick={() => {
-                  setCorSelecionada(cor.cor);
-                  setTamanhoSelecionado("");
-                  setAdicionado(false);
-                  setZoomAtivo(false);
-                  setPosicaoZoom({ x: 50, y: 50 });
-                  setQuantidade(1);
-                }}
-              >
-                {cor.cor}
-              </button>
-            ))}
+          <div className="produto-cores" aria-label="Cores disponíveis">
+            {coresDisponiveis.map((cor) => {
+              const selecionada = corSelecionada === cor.cor;
+
+              return (
+                <button
+                  key={cor.cor}
+                  type="button"
+                  className={`produto-cor-amostra ${selecionada ? "selecionada" : ""}`}
+                  title={cor.cor}
+                  aria-label={`Selecionar cor ${cor.cor}`}
+                  aria-pressed={selecionada}
+                  onClick={() => {
+                    setCorSelecionada(cor.cor);
+                    setTamanhoSelecionado("");
+                    setAdicionado(false);
+                    setZoomAtivo(false);
+                    setPosicaoZoom({ x: 50, y: 50 });
+                    setQuantidade(1);
+                  }}
+                >
+                  <span
+                    className="produto-cor-amostra-interior"
+                    style={{ backgroundColor: obterCorVisual(cor.cor) }}
+                    aria-hidden="true"
+                  />
+                </button>
+              );
+            })}
           </div>
 
           {coresDisponiveis.length === 0 && (
@@ -428,6 +481,14 @@ export default function PaginaProdutoMasculino() {
             <div className="produto-acoes">
               <button
                 type="button"
+                className="produto-comprar-agora"
+                onClick={comprarAgora}
+              >
+                Comprar agora
+              </button>
+
+              <button
+                type="button"
                 className="produto-adicionar"
                 onClick={adicionarProduto}
               >
@@ -443,15 +504,6 @@ export default function PaginaProdutoMasculino() {
                   Produto adicionado ao carrinho!
                 </p>
               )}
-
-              <a
-                className="produto-whatsapp"
-                href={`${WHATSAPP}?text=${mensagem}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Comprar pelo WhatsApp
-              </a>
             </div>
           ) : (
             <p className="produto-aviso">
@@ -547,6 +599,45 @@ export default function PaginaProdutoMasculino() {
           gap: 10px;
         }
 
+        .produto-cores {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .produto-cor-amostra {
+          display: inline-flex;
+          width: 42px;
+          height: 42px;
+          align-items: center;
+          justify-content: center;
+          padding: 3px;
+          border: 1px solid #d7b8b8;
+          border-radius: 50%;
+          background: white;
+          cursor: pointer;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .produto-cor-amostra.selecionada {
+          border: 2px solid #863d3d;
+          box-shadow: 0 0 0 2px #f3e5e2;
+        }
+
+        .produto-cor-amostra:focus-visible {
+          outline: 2px solid #863d3d;
+          outline-offset: 3px;
+        }
+
+        .produto-cor-amostra-interior {
+          display: block;
+          width: 32px;
+          height: 32px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 50%;
+        }
+
         .produto-opcao {
           border: 1px solid #d7b8b8;
           border-radius: 7px;
@@ -580,6 +671,21 @@ export default function PaginaProdutoMasculino() {
           margin-top: 20px;
         }
 
+        .produto-comprar-agora {
+          padding: 14px 20px;
+          border: 1px solid #863d3d;
+          border-radius: 8px;
+          background: #863d3d;
+          color: white;
+          font: inherit;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .produto-comprar-agora:hover {
+          background: #5c2a2a;
+        }
+
         .produto-adicionar {
           padding: 14px 20px;
           border: 1px solid #863d3d;
@@ -593,16 +699,6 @@ export default function PaginaProdutoMasculino() {
 
         .produto-adicionar:hover {
           background: #f3e5e2;
-        }
-
-        .produto-whatsapp {
-          display: block;
-          padding: 14px 20px;
-          border-radius: 8px;
-          background: #863d3d;
-          color: white;
-          text-decoration: none;
-          text-align: center;
         }
 
         .produto-sucesso {

@@ -31,7 +31,61 @@ type Catalogo = {
   variacoes: Variacao[];
 };
 
-const WHATSAPP = "https://wa.me/556796910734";
+function obterCorVisual(nome: string): string {
+  const normalizada = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  const cores: Record<string, string> = {
+    preto: "#222222",
+    preta: "#222222",
+    branco: "#FFFFFF",
+    branca: "#FFFFFF",
+    azul: "#2855A6",
+    "azul marinho": "#17264A",
+    marinho: "#17264A",
+    cappucino: "#7B3A26",
+    capuccino: "#7B3A26",
+    cappuccino: "#7B3A26",
+    castanho: "#79513A",
+    rubi: "#9B1B30",
+    sensuale: "#6E1E2B",
+    "verde etereo": "#B7C8A5",
+    vermelho: "#C62828",
+    vermelha: "#C62828",
+    vinho: "#722F37",
+    rosa: "#E88BA8",
+    pink: "#E85D9E",
+    roxo: "#7546A8",
+    lilas: "#B7A0D8",
+    verde: "#32805A",
+    amarelo: "#F2D34F",
+    laranja: "#E98232",
+    bege: "#D8C2A0",
+    nude: "#D9AE91",
+    marrom: "#795548",
+    cinza: "#929292",
+    mescla: "#A7A7A7",
+    prata: "#C5C7C9",
+    dourado: "#C6A34F",
+    creme: "#F3E8CF",
+    satin: "#7A4A55",
+    "verde garden": "#1F6B5F",
+  };
+
+  if (cores[normalizada]) return cores[normalizada];
+
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(nome.trim())) {
+    return nome.trim();
+  }
+
+  const correspondencia = Object.entries(cores).find(([chave]) =>
+    normalizada.includes(chave)
+  );
+  return correspondencia?.[1] ?? "#D7B8B8";
+}
 
 export default function PaginaProduto() {
   const params = useParams<{ slug: string }>();
@@ -52,6 +106,8 @@ export default function PaginaProduto() {
   const [zoomAtivo, setZoomAtivo] = useState(false);
 
   const [quantidade, setQuantidade] = useState(1);
+
+
 
   useEffect(() => {
     let ativo = true;
@@ -190,26 +246,6 @@ export default function PaginaProduto() {
 
   const preco = Number(produto.preco);
 
-  const total = (preco * quantidade).toLocaleString("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  });
-  
-  
-    const mensagem = encodeURIComponent(
-      [
-        "Olá! Gostaria de fazer uma encomenda pela ByChicuti.",
-        "",
-        `Produto: ${produto.nome}`,
-        `Código: ${produto.codigo || "Não informado"}`,
-        `Cor: ${corSelecionada || "Não selecionada"}`,
-        `Tamanho: ${tamanhoSelecionado || "Não selecionado"}`,
-        `Quantidade: ${quantidade}`,
-        `Valor dos produtos: ${total}`,
-      ].join("\n")
-    );
-
-
     function adicionarProduto(): boolean {
       const idNumerico = Number(produto.id);
 
@@ -314,30 +350,40 @@ export default function PaginaProduto() {
 
           {produto.descricao && <p>{produto.descricao}</p>}
 
-          <h2>Cor</h2>
+          <h2>
+          Cor{corSelecionada ? `: ${corSelecionada}` : ": Selecione uma cor"}
+        </h2>
 
-          <div className="produto-opcoes">
-            {coresDisponiveis.map((cor) => (
+        <div className="produto-cores" aria-label="Cores disponíveis">
+          {coresDisponiveis.map((cor) => {
+            const selecionada = corSelecionada === cor.cor;
+
+            return (
               <button
                 key={cor.cor}
                 type="button"
-                className={
-                  corSelecionada === cor.cor
-                    ? "produto-opcao selecionada"
-                    : "produto-opcao"
-                }
-                aria-pressed={corSelecionada === cor.cor}
+                className={`produto-cor-amostra ${selecionada ? "selecionada" : ""}`}
+                title={cor.cor}
+                aria-label={`Selecionar cor ${cor.cor}`}
+                aria-pressed={selecionada}
                 onClick={() => {
                   setCorSelecionada(cor.cor);
                   setTamanhoSelecionado("");
                   setAdicionado(false);
+                  setZoomAtivo(false);
+                  setPosicaoLupa({ x: 50, y: 50 });
                   setQuantidade(1);
                 }}
               >
-                {cor.cor}
+                <span
+                  className="produto-cor-amostra-interior"
+                  style={{ backgroundColor: obterCorVisual(cor.cor) }}
+                  aria-hidden="true"
+                />
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
           {coresDisponiveis.length === 0 && (
             <p>Produto sem estoque no momento.</p>
@@ -461,14 +507,7 @@ export default function PaginaProduto() {
               </p>
             )}
 
-            <a
-              className="produto-whatsapp"
-              href={`${WHATSAPP}?text=${mensagem}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Faça sua encomenda pelo WhatsApp
-            </a>
+
           </div>
 
           ) : (
@@ -480,6 +519,44 @@ export default function PaginaProduto() {
       </section>
 
       <style jsx>{`
+      .produto-cores {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .produto-cor-amostra {
+        display: inline-flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        padding: 3px;
+        border: 1px solid #d7b8b8;
+        border-radius: 50%;
+        background: white;
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .produto-cor-amostra.selecionada {
+        border: 2px solid #863d3d;
+        box-shadow: 0 0 0 2px #f3e5e2;
+      }
+
+      .produto-cor-amostra:focus-visible {
+        outline: 2px solid #863d3d;
+        outline-offset: 3px;
+      }
+
+      .produto-cor-amostra-interior {
+        display: block;
+        width: 32px;
+        height: 32px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        border-radius: 50%;
+      }
         .produto-pagina {
           max-width: 1100px;
           margin: 0 auto;
@@ -697,17 +774,6 @@ export default function PaginaProduto() {
           background: #f3e5e2;
         }
 
-        .produto-whatsapp {
-          display: inline-block;
-          margin-top: 0;
-          padding: 14px 20px;
-          border-radius: 8px;
-          background: #863d3d;
-          color: white;
-          text-decoration: none;
-          text-align: center;
-        }
-
         .produto-sucesso {
           margin: 0;
           color: #28653a;
@@ -735,9 +801,6 @@ export default function PaginaProduto() {
             font-size: 26px;
           }
 
-          .produto-whatsapp {
-            display: block;
-          }
         }
       `}</style>
     </main>
