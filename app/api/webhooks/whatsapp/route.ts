@@ -1,109 +1,143 @@
+import crypto from "crypto";
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
-import { NextRequest, NextResponse } from "next/server";
+export const runtime = "nodejs";
 
-export const dynamic = "force-dynamic";
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "";
+const ACCESS_TOKEN = process.env.WHATSAPP_TOKEN || "";
+const PHONE_ID = process.env.WHATSAPP_PHONE_ID || "";
+const APP_SECRET = process.env.WHATSAPP_APP_SECRET || "";
 
-export async function GET(request: NextRequest) {
+const SITE = "https://bychicuti.vercel.app";
+
+const MENU =
+  "Olá! Sou o assistente da By Chicuti. Responda com um número:\n\n" +
+  "1 - Horário e endereço\n" +
+  "2 - Tamanhos\n" +
+  "3 - Ver produtos e comprar no site\n" +
+  "4 - Status do meu pedido\n\n" +
+  "Ou envie o código do pedido (exemplo: BC-1A2B3C4D).";
+
+// A Meta chama este endereço uma vez, para confirmar que o site é seu.
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-
-  const mode = searchParams.get("hub.mode");
+  const modo = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+  const desafio = searchParams.get("hub.challenge");
 
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
-
-  if (
-    mode === "subscribe" &&
-    token &&
-    verifyToken &&
-    token === verifyToken &&
-    challenge
-  ) {
-    return new NextResponse(challenge, { status: 200 });
+  if (modo === "subscribe" && VERIFY_TOKEN && token === VERIFY_TOKEN && desafio) {
+    return new Response(desafio, { status: 200 });
   }
 
-  return NextResponse.json(
-    { error: "Verificação do webhook inválida" },
-    { status: 403 }
-  );
+  return new Response("Acesso negado", { status: 403 });
 }
 
-async function enviarResposta(
-  numero: string,
-  mensagem: string
-) {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+// Confere se a mensagem veio mesmo da Meta.
+function assinaturaValida(corpo: string, cabecalho: string | null) {
+  if (!APP_SECRET || !cabecalho) return false;
 
-  if (!phoneNumberId || !accessToken) {
-    throw new Error("Configuração do WhatsApp ausente");
-  }
+  const esperado =
+    "sha256=" +
+    crypto.createHmac("sha256", APP_SECRET).update(corpo).digest("hex");
 
-  const response = await fetch(
-    `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`,
+  const a = Buffer.from(esperado);
+  const b = Buffer.from(cabecalho);
+
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+async function enviar(para: string, texto: string) {
+  const resposta = await fetch(
+    `https://graph.facebook.com/v21.0/${PHONE_ID}/messages`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: numero,
+        to: para,
         type: "text",
-        text: { body: mensagem },
+        text: { body: texto },
       }),
+      signal: AbortSignal.timeout(8000),
     }
   );
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("Erro ao enviar mensagem pelo WhatsApp:", error);
-    throw new Error("Falha no envio pelo WhatsApp");
+  if (!resposta.ok) {
+    console.error("Falha ao enviar mensagem do WhatsApp:", resposta.status);
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+// Só devolve o status do pedido, nunca nome, telefone ou endereço.
+async function statusDoPedido(codigo: string) {
+  const codigoMaiusculo = codigo.toUpperCase();
 
-    if (body?.object !== "whatsapp_business_account") {
-      return NextResponse.json({ received: false }, { status: 404 });
-    }
+  const resultado = await db.query(
+    "SELECT status FROM pedidos WHERE codigo = $1",
+    [codigoMaiusculo]
+  );
 
-    for (const entry of body.entry ?? []) {
-      for (const change of entry.changes ?? []) {
-        if (change.field !== "messages") continue;
+  const pedido = resultado.rows[0];
 
-        for (const message of change.value?.messages ?? []) {
-          const numero = message.from;
-          const texto = message.text?.body?.trim();
-
-          console.log("Mensagem recebida pelo WhatsApp:", {
-            from: numero,
-            type: message.type,
-            text: texto,
-            id: message.id,
-          });
-
-          if (!numero || !texto) continue;
-
-          await enviarResposta(
-            numero,
-            "Olá! 😊 Você está falando com a ByChicuti! Como podemos ajudar? Responda com: 1 - Produtos femininos, 2 - Produtos masculinos, 3 - Atendimento."
-          );
-        }
-      }
-    }
-
-    return NextResponse.json({ received: true }, { status: 200 });
-  } catch (error) {
-    console.error("Erro no webhook do WhatsApp:", error);
-
-    return NextResponse.json(
-      { error: "Não foi possível processar a notificação" },
-      { status: 500 }
-    );
+  if (!pedido) {
+    return "Não encontrei esse pedido. Confira o código e tente de novo.";
   }
+
+  if (pedido.status === "PAGO") {
+    return `Pedido ${codigoMaiusculo}: pagamento confirmado. Já estamos separando o seu pedido.`;
+  }
+
+  if (pedido.status === "PENDENTE") {
+    return `Pedido ${codigoMaiusculo}: aguardando a confirmação do pagamento.`;
+  }
+
+  return `Pedido ${codigoMaiusculo}: está em análise pela loja. Em breve entramos em contato.`;
+}
+
+async function responder(textoRecebido: string) {
+  const texto = textoRecebido.trim();
+
+  const codigo = texto.match(/BC-[A-Fa-f0-9]{8}/);
+  if (codigo) {
+    return statusDoPedido(codigo[0]);
+  }
+
+  switch (texto) {
+    case "1":
+      return "Horário: segunda a sábado, das 9h às 18h.\nEndereço: TROQUE PELO ENDEREÇO REAL DA LOJA.";
+    case "2":
+      return "TROQUE PELA SUA TABELA DE TAMANHOS. Em caso de dúvida, mande uma mensagem que a loja ajuda.";
+    case "3":
+      return `Veja os produtos e compre pelo site: ${SITE}`;
+    case "4":
+      return "Envie o código do seu pedido (exemplo: BC-1A2B3C4D) que eu consulto o status.";
+    default:
+      return MENU;
+  }
+}
+
+export async function POST(request: Request) {
+  const corpo = await request.text();
+
+  if (!assinaturaValida(corpo, request.headers.get("x-hub-signature-256"))) {
+    return new Response("Assinatura inválida", { status: 401 });
+  }
+
+  try {
+    const dados = JSON.parse(corpo);
+    const mensagem = dados?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+    if (mensagem && mensagem.type === "text") {
+      const resposta = await responder(String(mensagem.text?.body ?? ""));
+      await enviar(String(mensagem.from), resposta);
+    }
+  } catch (erro) {
+    console.error("Erro no bot do WhatsApp:", erro);
+  }
+
+  // Sempre responde 200 depois de validar a assinatura, para a Meta não reenviar.
+  return NextResponse.json({ ok: true });
 }
