@@ -24,7 +24,9 @@ export default function WhatsAppLink({
 
   return (
     <a
-      href={mensagem ? `https://wa.me/5567996910734?text=${encodeURIComponent(mensagem)}` : "https://wa.me/message/GSDJGPZA2QRKA1"}
+      href={mensagem
+  ? `https://api.whatsapp.com/send?phone=5567996910734&text=${encodeURIComponent(mensagem)}`
+  : "https://wa.me/message/GSDJGPZA2QRKA1"}
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
